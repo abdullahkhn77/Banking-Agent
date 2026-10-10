@@ -1,0 +1,12 @@
+# Runtime dependencies. Pinned to the current major version (for 0.x packages the minor
+# version is the breaking-change boundary, so those are pinned to the minor).
+langgraph>=1.2,<2
+langchain-core>=1.6,<2
+langchain-openai>=1.7,<2
+openai>=3.28,<4
+fastapi>=0.143,<0.144
+uvicorn[standard]>=0.54,<0.55
+httpx>=0.28,<0.29
+pydantic>=2.14,<3
+prometheus-client>=0.26,<0.27
+pyyaml>=6.0,<7

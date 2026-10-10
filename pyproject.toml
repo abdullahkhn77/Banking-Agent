@@ -1,0 +1,23 @@
+[project]
+name = "banking-support-agent"
+version = "0.0.0"
+description = "Guardrailed multi-step banking support agent (LangGraph) with an evaluation suite, vLLM serving, and monitoring."
+readme = "README.md"
+requires-python = ">=3.11"
+# Dependencies are declared in requirements.txt / requirements-dev.txt (single source of truth).
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agent", "api", "bank_services", "evals", "monitoring", "scripts", "serving"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
