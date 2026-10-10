@@ -8,7 +8,7 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 1 complete (next: 2, tool registry + guardrail engine).** See `docs/PLAN.md` for the full plan and
+**Current phase: 2 complete (next: 3, LangGraph agent).** See `docs/PLAN.md` for the full plan and
 definition-of-done checklists.
 Only work on the current phase; do not build features that belong to later phases.
 
@@ -97,6 +97,42 @@ metadata and tool config only). Pins: current major version (`>=X.Y,<X+1`); for 
 - Approved actions execute with the **validated arguments stored at proposal time** (never re-read from the model).
 - Blocked calls return an **error ToolMessage** so the model can recover.
 - **Tool output (merchant names, memos, descriptions) is untrusted data, never instructions.**
+
+#### `agent/` as built (phase 2)
+- `client.py`: `BankClient` routes by URL prefix (per-service base URLs optional), raises `ServiceError` on 4xx
+  immediately, retries 5xx/transport errors with backoff, then raises `ServiceError(503, "UNAVAILABLE")`. Each write
+  gets ONE `Idempotency-Key` reused on every retry; reads send none.
+- `tools.py`: `REGISTRY` (7 read, 4 write, 3 admin), `AGENT_ALLOWLIST` = read + write, `openai_tools()`.
+  `Ctx(user_id, client)` carries identity; no tool has a user/customer argument (a test enforces this).
+  Transactions are returned with `memo_untrusted` (description truncated to 240 chars). `ToolSpec.invoke()` validates
+  with the tool's own model and runs it.
+- `guardrails.py`: `GuardrailEngine.check(name, raw_args, ctx, writes_so_far) -> GuardResult`. Never raises; fails
+  closed. `GuardConfig(enabled=False)` is the ablation mode (only `UNKNOWN_TOOL` is ever blocked).
+- **Rule: NOT_OWNER and NOT_FOUND use the same model-facing message** ("No such <resource> for this customer. Look
+  IDs up with a list tool instead of guessing.") so errors never reveal whether another customer's id exists. The
+  codes stay distinct for metrics.
+- Block messages are written for the model: short, actionable, never containing another customer's data.
+- Policy checks use service data (`age_days`, statuses, existing disputes/flags), never the agent's own clock.
+
+| Layer | Code | When |
+|---|---|---|
+| L1 | `NOT_ALLOWLISTED` | Tool not on the allow-list (admin tools, hallucinated tools, non-string names) |
+| L2 | `INVALID_ARGS` | Args not a dict, or fail the strict args model (message lists up to 4 field errors) |
+| L3 | `NOT_OWNER` | A `card_id` / `transaction_id` / `dispute_id` exists but belongs to another customer |
+| L3 | `NOT_FOUND` | The referenced resource does not exist |
+| L3/L4 | `LOOKUP_FAILED` | An ownership or policy lookup failed (e.g. 503 after retries); fail closed |
+| L4 | `CARD_REPORTED_STOLEN` | Freeze/unfreeze of a `reported_stolen` card |
+| L4 | `CARD_ALREADY_FROZEN` / `CARD_NOT_FROZEN` | Freeze of a frozen card / unfreeze of a card that is not frozen |
+| L4 | `DISPUTE_WINDOW_EXPIRED` | Transaction older than `DISPUTE_WINDOW_DAYS` (120) |
+| L4 | `AMOUNT_EXCEEDS_TRANSACTION` | Dispute amount above the charge |
+| L4 | `DUPLICATE_DISPUTE` | A dispute that is not closed already exists for the transaction |
+| L4 | `ALREADY_FLAGGED` | The transaction is already flagged |
+| L5 | `ACTION_BUDGET_EXCEEDED` | `writes_so_far >= max_writes_per_session` (default 6) |
+| — | `UNKNOWN_TOOL` | Ablation mode only: the name is not in `REGISTRY` |
+| — | `GUARD_ERROR` | Unexpected internal error; the call is blocked (fail closed) |
+
+Reads that pass L1–L3 → `allow`. Writes that pass L1–L5 → `confirm` with a human-readable `summary`; L6 (the
+`interrupt()` confirmation) is enforced by the graph in phase 3.
 
 ### LLM
 - The LLM is reached **only** through an **OpenAI-compatible endpoint** (vLLM in production).

@@ -35,15 +35,19 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
       account (checked by a test, not asserted from memory)
 - [x] `make serve-bank` implemented (replaces the `seed`/`services` placeholders; the seed is built in memory)
 
-## Phase 2 — Tool registry + guardrail engine
-- [ ] Tool registry: agent allow-list excludes payments and admin ops (test)
-- [ ] Customer identity injected from session, never a tool argument (test: schema has no customer field)
-- [ ] L1 allow-list, L2 strict pydantic (`extra="forbid"`, ID regexes, enums, ranges), L3 ownership, L4 business policy
+## Phase 2 — Bank client + tool registry + guardrail engine
+- [x] `BankClient`: prefix routing, 4xx never retried, 5xx/transport retried with backoff, one Idempotency-Key per
+      write reused on every retry (test: "after" fault + retry applies exactly once)
+- [x] Tool registry: agent allow-list excludes payments and admin ops (test)
+- [x] Customer identity injected from session, never a tool argument (test: schema has no customer field)
+- [x] L1 allow-list, L2 strict pydantic (`extra="forbid"`, ID regexes, enums, ranges), L3 ownership, L4 business policy
       (dispute window, stolen card, duplicate dispute, amount ≤ transaction), L5 action budget — each with unit tests
       for allow and block paths
-- [ ] Guard decision object records which layer blocked and why
-- [ ] Blocked calls produce an error ToolMessage payload
-- [ ] Validated arguments are captured at proposal time for later execution
+- [x] Guard decision object records which layer blocked and why
+- [x] Blocked calls produce a model-facing error message (`GuardResult.message`); phase 3 wraps it in a ToolMessage
+- [x] Validated arguments are captured at proposal time for later execution
+- [x] Engine never raises (fuzz test) and fails closed on lookup errors; ablation mode (`enabled=False`) available
+- [x] Mutation check: disabling the L3 ownership comparison makes tests fail
 
 ## Phase 3 — LangGraph agent
 - [ ] Graph: agent → guard → confirm (`interrupt()`) → execute loop

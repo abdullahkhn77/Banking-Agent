@@ -7,8 +7,9 @@ unauthorized tool calls. An evaluation suite grades the agent on backend end sta
 task-completion reliability. The LLM is served through vLLM (FP16 vs AWQ 4-bit) with CI/CD and Prometheus/Grafana
 monitoring. Every reported metric is produced by a script and saved under `results/`.
 
-> **Status: phase 1 complete.** Simulated bank (5 FastAPI microservices), deterministic seed data, and a rule-based
-> anomaly detector with ground-truth tests. No agent yet. See [docs/PLAN.md](docs/PLAN.md).
+> **Status: phase 2 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
+> anomaly detector; a retrying, idempotent bank client; the agent's tool registry; and the layered guardrail engine
+> (L1–L5). No LLM or agent graph yet. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Setup
 
