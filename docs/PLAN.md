@@ -21,19 +21,19 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
 - [x] README stub; `git init` + first commit
 
 ## Phase 1 — Simulated microservices + seed data + anomaly detector
-- [ ] 5 FastAPI services (accounts, cards, disputes, risk, payments) under `/<name>/v1`
-- [ ] Runnable in one process or one-per-process via `SERVICE` env var
-- [ ] Deterministic seed (fixed RNG seed, `NOW = 2026-10-01T12:00:00Z`): ~6 customers, ~11 cards, ~250 transactions;
+- [x] 5 FastAPI services (accounts, cards, disputes, risk, payments) under `/<name>/v1`
+- [x] Runnable in one process or one-per-process via `SERVICE` env var
+- [x] Deterministic seed (fixed RNG seed, `NOW = 2026-10-01T12:00:00Z`): ~6 customers, ~11 cards, ~250 transactions;
       re-running the seed yields byte-identical data (test)
-- [ ] All 9 planted cases present and asserted by tests
-- [ ] Domain rules enforced in services; `Idempotency-Key` honored on write endpoints (test: replay returns same result,
+- [x] All 9 planted cases present and asserted by tests
+- [x] Domain rules enforced in services; `Idempotency-Key` honored on write endpoints (test: replay returns same result,
       no double write)
-- [ ] Fault injection (fail-before / fail-after apply) with tests
-- [ ] Payments transfers and admin ops (close account, change email) exist in the backend
-- [ ] State snapshot endpoint/helper usable by the grader
-- [ ] Rule-based anomaly detector with ground-truth tests on the planted cases (precision/recall computed by a test,
-      not asserted from memory)
-- [ ] `make seed` and `make services` implemented
+- [x] Fault injection (fail-before / fail-after apply) with tests
+- [x] Payments transfers and admin ops (close account, change email) exist in the backend
+- [x] State snapshot endpoint/helper usable by the grader
+- [x] Rule-based anomaly detector with ground-truth tests: output must equal `EXPECTED_ANOMALIES` exactly for every
+      account (checked by a test, not asserted from memory)
+- [x] `make serve-bank` implemented (replaces the `seed`/`services` placeholders; the seed is built in memory)
 
 ## Phase 2 — Tool registry + guardrail engine
 - [ ] Tool registry: agent allow-list excludes payments and admin ops (test)

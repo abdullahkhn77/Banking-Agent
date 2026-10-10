@@ -8,7 +8,8 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 0 (foundation).** See `docs/PLAN.md` for the full plan and definition-of-done checklists.
+**Current phase: 1 complete (next: 2, tool registry + guardrail engine).** See `docs/PLAN.md` for the full plan and
+definition-of-done checklists.
 Only work on the current phase; do not build features that belong to later phases.
 
 ## Commands
@@ -18,10 +19,11 @@ make install   # create .venv (Python 3.12) if missing, install requirements-dev
 make lint      # ruff check . && ruff format --check .
 make format    # ruff check --fix . && ruff format .
 make test      # pytest
+make serve-bank  # all 5 bank services on :9000 (SERVICE=<name> uvicorn ... runs one)
 make help      # list all targets (later-phase targets print "not implemented yet (phase N)")
 ```
 
-Single test: `.venv/bin/python -m pytest tests/test_smoke.py -k agent`
+Single test: `.venv/bin/python -m pytest tests/test_services.py -k idempotent`
 
 ## Repo layout
 
@@ -66,6 +68,20 @@ metadata and tool config only). Pins: current major version (`>=X.Y,<X+1`); for 
 - Services support **fault injection** (fail before or after applying a change).
 - **payments** (transfers) and **admin** operations (close account, change email) exist in the backend but are
   **NEVER** on the agent's allow-list.
+
+#### `bank_services/` as built (phase 1)
+- `data.py`: constants (`NOW`, `HOME_COUNTRY`, `DISPUTE_WINDOW_DAYS`, reason enums), `build_seed()`, and ground truth
+  (`EXPECTED_ANOMALIES`, `PLANTED_CASES`). 6 customers, 11 cards, 260 transactions (240 background + 20 planted).
+- `store.py`: `BankStore` (RLock, `reset(fault_rate, latency_ms, seed, fault_mode)`, `roll_fault()`,
+  `run_idempotent()`, `snapshot()`) and the default `STORE`. `fault_mode="before"|"after"` forces a fault kind.
+- `risk.py`: `detect_anomalies(txns, now, days=90)`, a pure function. Its output must equal `EXPECTED_ANOMALIES`.
+- `app.py`: `create_app(store, services)`, 5 routers, fault-injection middleware, `/healthz`, `/_admin/reset`,
+  `/_admin/snapshot`. Errors are always `{"detail": {"code", "message"}}`.
+- Idempotency scope is method + concrete path + key; 2xx/4xx responses are stored, 5xx never.
+- Injected 503s look identical for "before" and "after" faults (a lost response must be indistinguishable).
+- Separate-process mode gives each process its own in-memory store; cross-service consistency (e.g. balances after a
+  transfer) only holds in single-process mode, which tests and evals use.
+- Never read the real clock in `bank_services/` (a test enforces this).
 
 ### Identity
 - Customer identity comes from the **authenticated session**. It is **never** an LLM tool argument.

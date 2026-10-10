@@ -9,8 +9,8 @@ PYTHON := $(BIN)/python
 # Placeholder for targets owned by a later phase: $(call todo,<phase>)
 todo = @echo "$@: not implemented yet (phase $(1))"
 
-.PHONY: help install lint format test \
-	seed services eval redteam serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
+.PHONY: help install lint format test serve-bank \
+	eval redteam serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -38,13 +38,12 @@ format: ## Auto-fix lint issues and format code
 test: ## Run the test suite
 	$(PYTHON) -m pytest
 
+# ---- Phase 1 -----------------------------------------------------------------
+
+serve-bank: ## Run the simulated bank on :9000 (all 5 services; SERVICE=<name> runs one)
+	$(BIN)/uvicorn bank_services.app:app --port 9000
+
 # ---- Later phases: placeholders ----------------------------------------------
-
-seed: ## Generate deterministic seed data (phase 1)
-	$(call todo,1)
-
-services: ## Run the simulated bank microservices (phase 1)
-	$(call todo,1)
 
 eval: ## Run the evaluation suite -> results/<run_name>/ (phase 4)
 	$(call todo,4)

@@ -7,7 +7,8 @@ unauthorized tool calls. An evaluation suite grades the agent on backend end sta
 task-completion reliability. The LLM is served through vLLM (FP16 vs AWQ 4-bit) with CI/CD and Prometheus/Grafana
 monitoring. Every reported metric is produced by a script and saved under `results/`.
 
-> **Status: phase 0 (foundation).** Repo layout, tooling, and CI only — no features yet. See [docs/PLAN.md](docs/PLAN.md).
+> **Status: phase 1 complete.** Simulated bank (5 FastAPI microservices), deterministic seed data, and a rule-based
+> anomaly detector with ground-truth tests. No agent yet. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Setup
 
@@ -19,4 +20,11 @@ make install   # create .venv and install requirements-dev.txt
 make lint      # ruff check + format check
 make test      # pytest
 make help      # list all targets
+```
+
+Run the simulated bank (all five services on http://localhost:9000, docs at `/docs`):
+
+```bash
+make serve-bank
+SERVICE=cards .venv/bin/uvicorn bank_services.app:app --port 9001   # one service per process
 ```
