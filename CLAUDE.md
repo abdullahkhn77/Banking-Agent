@@ -8,7 +8,7 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 2 complete (next: 3, LangGraph agent).** See `docs/PLAN.md` for the full plan and
+**Current phase: 3 complete (next: 4, evaluation suite).** See `docs/PLAN.md` for the full plan and
 definition-of-done checklists.
 Only work on the current phase; do not build features that belong to later phases.
 
@@ -20,8 +20,12 @@ make lint      # ruff check . && ruff format --check .
 make format    # ruff check --fix . && ruff format .
 make test      # pytest
 make serve-bank  # all 5 bank services on :9000 (SERVICE=<name> uvicorn ... runs one)
+make chat USER=u_1001   # interactive agent CLI (model from LLM_BASE_URL / LLM_MODEL), prints the guard trace
+make test-live          # live LLM smoke tests (marker `live`, excluded from `make test` and CI)
 make help      # list all targets (later-phase targets print "not implemented yet (phase N)")
 ```
+
+Local model (Ollama): `LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b make chat`.
 
 Single test: `.venv/bin/python -m pytest tests/test_services.py -k idempotent`
 
@@ -133,6 +137,45 @@ metadata and tool config only). Pins: current major version (`>=X.Y,<X+1`); for 
 
 Reads that pass L1–L3 → `allow`. Writes that pass L1–L5 → `confirm` with a human-readable `summary`; L6 (the
 `interrupt()` confirmation) is enforced by the graph in phase 3.
+
+**Ablation decision (phase 3):** with guardrails disabled, execution STILL goes through `ToolSpec.invoke`, so each
+tool's own argument model is enforced. Guardrails off = no L1–L6; tool schemas still enforced. The model is offered
+the same allow-listed tool schemas in both modes, so an ablation changes enforcement only, not the prompt.
+
+#### Agent graph (phase 3, `agent/graph.py`)
+
+```
+START -> agent --(tool calls?)--> guard --(any pending write?)--> confirm (interrupt) --> execute --> agent
+           \--(no tool calls)--> END     \--(none pending)----------------------------> execute
+```
+
+State: `messages` (add_messages) · `batch` (current tool calls with status approved|pending|blocked|declined) ·
+`writes` (successful write/admin calls this session) · `steps` (LLM calls this turn, reset per user message) ·
+`trace` (append-only events: `llm`, `tool_call`, `confirmation`, `execution`, `step_limit`).
+
+- `agent`: system prompt (customer name + simulated date from `NOW`, no user_id) + history window (last 40
+  messages, starting at a HumanMessage; an oversized current turn is kept whole). LLM errors and the step limit →
+  `FALLBACK_REPLY`, never a crash. Final text replies are PAN-redacted. Malformed tool calls stay in history and fail
+  L2 as `INVALID_ARGS`.
+- `guard`: `user_id` comes from `config["configurable"]["user_id"]` (set by the facade, never by the model).
+  `writes_so_far` = state writes + writes already pending earlier in the same batch.
+- `confirm`: `interrupt({"type": "confirmation_required", "actions": [{action_id, tool, summary}]})`.
+- `execute`: approved calls run `REGISTRY[name].invoke(ctx, stored_args)`; blocked/declined calls get error
+  ToolMessages `{"error": code, "message": ...}`; every tool_call_id gets exactly one ToolMessage, in order.
+
+**Resume formats** (`BankingAgent.resume(thread, user, answer)`): `True` / `False`, `{"approve": bool}`, or
+`{"approved_ids": [...]}` for partial approval. Anything else is a decline. The facade wraps the answer as
+`{"customer_answer": answer}` because LangGraph 1.2 crashes on `Command(resume=None)` and treats hash-like dict keys
+as a resume map.
+
+**Session security rules (enforced by `BankingAgent`):**
+- (a) a thread is pinned to the user_id that started it; another user_id on it raises `ThreadOwnershipError`
+- (b) `send()` while a confirmation is pending raises `ConfirmationPendingError`
+- (c) `resume()` with nothing pending raises `NoPendingConfirmationError`
+
+LLM backends (`agent/llm.py`): `OpenAICompatLLM` (the only one whose results may be reported; optional JSONL
+recording of every request for the phase 6 replay benchmark) · `ReplayLLM` / `ScriptedLLM` (tests, harness checks
+and red team only; never reported metrics).
 
 ### LLM
 - The LLM is reached **only** through an **OpenAI-compatible endpoint** (vLLM in production).

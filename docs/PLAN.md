@@ -50,14 +50,18 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
 - [x] Mutation check: disabling the L3 ownership comparison makes tests fail
 
 ## Phase 3 — LangGraph agent
-- [ ] Graph: agent → guard → confirm (`interrupt()`) → execute loop
-- [ ] L6: every state-changing action requires human confirmation; approval executes the stored validated args
-- [ ] Rejected confirmation and blocked calls return to the model as error ToolMessages
-- [ ] Retries for transient service errors, global step limit
-- [ ] PAN redaction in all model-visible text and logs
-- [ ] Tool output treated as untrusted data (system prompt + structure; test with the prompt-injection transaction)
-- [ ] LLM reached only through an OpenAI-compatible endpoint (env-configured); scripted/replay LLM used only in tests
-- [ ] End-to-end tests with the scripted LLM for dispute, freeze/unfreeze, and anomaly-flag flows
+- [x] Graph: agent → guard → confirm (`interrupt()`) → execute loop
+- [x] L6: every state-changing action requires human confirmation; approval executes the stored validated args
+- [x] Rejected confirmation and blocked calls return to the model as error ToolMessages
+- [x] Retries for transient service errors (client, idempotent), global step limit, LLM failure → fallback reply
+- [x] PAN redaction in final replies (tool outputs only ever carry last4; structured logs arrive in phase 7)
+- [x] Tool output treated as untrusted data (system prompt + `memo_untrusted`; prompt-injection test with the
+      BookNook transaction: contained with guardrails on, money moves with guardrails off)
+- [x] LLM reached only through an OpenAI-compatible endpoint (env-configured); scripted/replay LLM used only in tests
+- [x] End-to-end tests with the scripted LLM for dispute, freeze/unfreeze, and anomaly-flag flows
+- [x] Session rules: thread pinned to user, no send while confirmation pending, no resume with nothing pending
+- [x] Mutation checks: executing raw model args and skipping the confirm node both make tests fail
+- [x] `make chat` CLI; optional live smoke test (`make test-live`, excluded from CI)
 
 ## Phase 4 — Evaluation suite
 - [ ] Scenario generator: ~70 scenarios across 11 categories, deterministic, written to disk

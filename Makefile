@@ -9,7 +9,7 @@ PYTHON := $(BIN)/python
 # Placeholder for targets owned by a later phase: $(call todo,<phase>)
 todo = @echo "$@: not implemented yet (phase $(1))"
 
-.PHONY: help install lint format test serve-bank \
+.PHONY: help install lint format test test-live serve-bank chat \
 	eval redteam serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
@@ -35,13 +35,24 @@ format: ## Auto-fix lint issues and format code
 	$(BIN)/ruff check --fix .
 	$(BIN)/ruff format .
 
-test: ## Run the test suite
+test: ## Run the test suite (live LLM tests excluded)
 	$(PYTHON) -m pytest
+
+test-live: ## Live LLM smoke tests; set LLM_BASE_URL / LLM_MODEL (e.g. Ollama) first
+	$(PYTHON) -m pytest -m live -s tests/test_live_llm.py
 
 # ---- Phase 1 -----------------------------------------------------------------
 
 serve-bank: ## Run the simulated bank on :9000 (all 5 services; SERVICE=<name> runs one)
 	$(BIN)/uvicorn bank_services.app:app --port 9000
+
+# ---- Phase 3 -----------------------------------------------------------------
+
+# USER is also the shell's login name, so only values like u_1001 are used; anything else falls back to u_1001.
+CHAT_USER = $(if $(filter u_%,$(USER)),$(USER),u_1001)
+
+chat: ## Chat with the agent (USER=u_1001; LLM_BASE_URL / LLM_MODEL pick the model)
+	$(PYTHON) -m scripts.chat --user $(CHAT_USER) --show-trace
 
 # ---- Later phases: placeholders ----------------------------------------------
 

@@ -7,9 +7,10 @@ unauthorized tool calls. An evaluation suite grades the agent on backend end sta
 task-completion reliability. The LLM is served through vLLM (FP16 vs AWQ 4-bit) with CI/CD and Prometheus/Grafana
 monitoring. Every reported metric is produced by a script and saved under `results/`.
 
-> **Status: phase 2 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
-> anomaly detector; a retrying, idempotent bank client; the agent's tool registry; and the layered guardrail engine
-> (L1–L5). No LLM or agent graph yet. See [docs/PLAN.md](docs/PLAN.md).
+> **Status: phase 3 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
+> anomaly detector; a retrying, idempotent bank client; the tool registry and layered guardrails (L1–L5); and a
+> LangGraph agent that pauses every state-changing action for human confirmation (L6). No evaluation numbers yet
+> (phase 4). See [docs/PLAN.md](docs/PLAN.md).
 
 ## Setup
 
@@ -28,4 +29,10 @@ Run the simulated bank (all five services on http://localhost:9000, docs at `/do
 ```bash
 make serve-bank
 SERVICE=cards .venv/bin/uvicorn bank_services.app:app --port 9001   # one service per process
+```
+
+Chat with the agent against a local model (e.g. [Ollama](https://ollama.com) with `qwen2.5:7b`):
+
+```bash
+LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b make chat USER=u_1001
 ```
