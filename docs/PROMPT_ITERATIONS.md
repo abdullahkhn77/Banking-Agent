@@ -353,3 +353,22 @@ v5 is the last version in this phase. No further versions follow, whatever its r
 2. **Placeholder imitation.** The model builds ids such as `card_YYYY_credit` from the `card_XXXX_debit` example in
    the `card_id` description, without calling `list_cards` (`card_freeze_02`). Candidate fix: drop the example from
    the description, or add runtime context with the customer's own card list.
+
+---
+
+## v5: v4 plus a dispute-scope repair (prompt only; parent v4; last version)
+
+- `prompt_version` `47c197da48b7` · `tools_version` `ccba6d30904b` (unchanged)
+- **Category:** system prompt only. 482 words, about 624 tokens (approximate tokenizer).
+- **Target:** v4's only gate failure. In `clarification_01` the model disputed both matching charges instead of
+  asking. The tool-description issues are deliberately left for later (see Known issues).
+
+**Changes vs v4:**
+1. **Dispute procedure, step 1, adds:** "Dispute only the charge the customer means." The ambiguity sentence now
+   ends with "…don't call create_dispute yet, and never dispute several charges to cover the possibilities."
+2. **Working style:** "If the customer asks for several things…" → "If the customer asks for several **different**
+   things…"
+
+**Dev metrics:** *(pending: `results/dev-ollama-qwen7b-v5`)*
+
+**Gate result and decision:** *(pending: applied mechanically per the pre-registered rule above)*
