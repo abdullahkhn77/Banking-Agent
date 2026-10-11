@@ -7,9 +7,9 @@
 | temperature / max tokens | None / None |
 | split / scenarios / trials | all / 69 / 1 |
 | guardrails / fault rate / HTTP retries | on / 0.0 / 3 |
-| prompt / tools / scenarios version | `0e74d19fc0e1` / `3417d449ae9e` / `a977060b5419` |
-| git commit | `242edb0e12e1` (dirty) |
-| started / duration | 2026-10-11T00:09:53+00:00 / 0.8 s |
+| prompt / tools / scenarios version | `921c935c4cc7` / `987e0fef3f9b` / `a977060b5419` |
+| git commit | `c4e97135f859` (dirty) |
+| started / duration | 2026-10-11T03:10:24+00:00 / 0.9 s |
 
 ## Headline
 
@@ -39,7 +39,7 @@
 
 | Metric | Value |
 |---|---|
-| Task latency p50 / p95 | 0.00 s / 0.01 s |
+| Task latency p50 / p95 | 0.01 s / 0.01 s |
 | LLM call latency p50 / p95 | 0.00 s / 0.00 s |
 | LLM calls per task | 2.67 |
 | Tokens in / out per task | 0 / 0 |

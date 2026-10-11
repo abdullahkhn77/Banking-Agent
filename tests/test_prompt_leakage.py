@@ -43,15 +43,6 @@ def test_the_leakage_check_detects_seed_content() -> None:
     assert _hits("use a placeholder such as card_XXXX_debit or $NN.NN") == []
 
 
-V1_KNOWN_LEAK = pytest.mark.xfail(
-    strict=True,
-    reason="prompt v1: the card_id description uses the seed id card_1001_debit as its example (fixed in v2)",
-)
-
-
-@pytest.mark.parametrize(
-    "source",
-    [pytest.param(s, marks=V1_KNOWN_LEAK) if s == "agent/tools.py" else s for s in MODEL_FACING_SOURCES],
-)
+@pytest.mark.parametrize("source", MODEL_FACING_SOURCES)
 def test_model_facing_text_has_no_seed_content(source: str) -> None:
     assert _hits((ROOT / source).read_text(encoding="utf-8")) == []

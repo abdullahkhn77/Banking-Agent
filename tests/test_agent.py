@@ -326,7 +326,8 @@ def test_malformed_tool_call_gets_invalid_args_and_agent_recovers(make_agent: Ma
     assert bad_result.tool_call_id == "call_bad"
     assert _payload(bad_result) == {
         "error": "INVALID_ARGS",
-        "message": "Arguments for freeze_card must be a JSON object.",
+        "message": "Arguments for freeze_card must be a JSON object. "
+        "freeze_card accepts only: card_id (required), reason (optional).",
     }
     assert paused.confirmation is not None and paused.confirmation["actions"][0]["action_id"] == "call_ok"
 

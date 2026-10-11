@@ -35,11 +35,29 @@ def _no_control_chars(value: str) -> str:
     return value
 
 
-CardId = Annotated[str, Field(pattern=CARD_ID_PATTERN, description="Card id from list_cards, e.g. card_1001_debit.")]
-TransactionId = Annotated[
-    str, Field(pattern=TRANSACTION_ID_PATTERN, description="Transaction id from list_transactions or analyze_spending.")
+CardId = Annotated[
+    str,
+    Field(
+        pattern=CARD_ID_PATTERN,
+        description="Exact card_id copied from list_cards output (format card_XXXX_type). "
+        "Never construct or guess one.",
+    ),
 ]
-DisputeId = Annotated[str, Field(pattern=DISPUTE_ID_PATTERN, description="Dispute id from list_disputes.")]
+TransactionId = Annotated[
+    str,
+    Field(
+        pattern=TRANSACTION_ID_PATTERN,
+        description="Exact transaction_id copied from list_transactions or analyze_spending output. "
+        "Never construct one.",
+    ),
+]
+DisputeId = Annotated[
+    str,
+    Field(
+        pattern=DISPUTE_ID_PATTERN,
+        description="Exact dispute_id copied from list_disputes output. Never construct one.",
+    ),
+]
 MerchantFilter = Annotated[str, Field(pattern=MERCHANT_FILTER_PATTERN)]
 CleanText = Annotated[str, AfterValidator(_no_control_chars)]
 # Decimal so "at most 2 decimals" is exact; shown to the model as a number and serialized as a float.
@@ -82,7 +100,11 @@ class GetDisputeStatusArgs(ToolArgs):
 
 class FreezeCardArgs(ToolArgs):
     card_id: CardId
-    reason: FreezeReason = Field(default="temporary", description="Why the card is being frozen.")
+    reason: FreezeReason = Field(
+        default="temporary",
+        description="lost; stolen; suspicious_activity (fraud alert or charges the customer does not recognise); "
+        "temporary (travel or a precaution).",
+    )
 
 
 class UnfreezeCardArgs(ToolArgs):
@@ -333,7 +355,14 @@ _TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec(
         "get_accounts", "List the customer's bank accounts with balance and status.", NoArgs, "read", _get_accounts
     ),
-    ToolSpec("list_cards", "List the customer's cards (card_id, type, last4, status).", NoArgs, "read", _list_cards),
+    ToolSpec(
+        "list_cards",
+        "List the customer's cards (card_id, type, last4, status). Call it first to get the exact card_id of any card "
+        "the customer mentions.",
+        NoArgs,
+        "read",
+        _list_cards,
+    ),
     ToolSpec(
         "list_transactions",
         f"List the customer's recent transactions, newest first. {_UNTRUSTED_NOTE}",
@@ -360,7 +389,7 @@ _TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec("list_disputes", "List the customer's disputes and their status.", NoArgs, "read", _list_disputes),
     ToolSpec(
         "get_dispute_status",
-        "Get the status of one of the customer's disputes.",
+        "Get the status of one of the customer's disputes. Call list_disputes first if you do not have the dispute_id.",
         GetDisputeStatusArgs,
         "read",
         _get_dispute_status,
@@ -376,7 +405,7 @@ _TOOLS: tuple[ToolSpec, ...] = (
     ),
     ToolSpec(
         "unfreeze_card",
-        f"Unfreeze one of the customer's frozen cards. {_CONFIRM_NOTE}",
+        f"Unfreeze one of the customer's frozen cards. Takes only card_id. {_CONFIRM_NOTE}",
         UnfreezeCardArgs,
         "write",
         _unfreeze_card,

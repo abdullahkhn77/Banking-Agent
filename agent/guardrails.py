@@ -129,7 +129,7 @@ def _check_disabled(name: Any, tool: str, raw_args: Any) -> GuardResult:
 
 def _validate(spec: ToolSpec, raw_args: Any) -> BaseModel:
     if not isinstance(raw_args, Mapping):
-        raise _Blocked("L2", "INVALID_ARGS", f"Arguments for {spec.name} must be a JSON object.")
+        raise _Blocked("L2", "INVALID_ARGS", f"Arguments for {spec.name} must be a JSON object. {_accepted_args(spec)}")
     try:
         return spec.args_model.model_validate(dict(raw_args))
     except ValidationError as exc:
@@ -138,7 +138,9 @@ def _validate(spec: ToolSpec, raw_args: Any) -> BaseModel:
         if len(errors) > MAX_REPORTED_ERRORS:
             problems += f"; and {len(errors) - MAX_REPORTED_ERRORS} more"
         raise _Blocked(
-            "L2", "INVALID_ARGS", f"Invalid arguments for {spec.name}: {problems}. Fix the arguments and try again."
+            "L2",
+            "INVALID_ARGS",
+            f"Invalid arguments for {spec.name}: {problems}. {_accepted_args(spec)} Fix the arguments and try again.",
         ) from None
 
 
@@ -150,9 +152,28 @@ def _format_error(err: Mapping[str, Any]) -> str:
 # ---- L3 -----------------------------------------------------------------------------------------------------------
 
 
+def _accepted_args(spec: ToolSpec) -> str:
+    fields = spec.args_model.model_fields
+    if not fields:
+        return f"{spec.name} takes no arguments."
+    listed = ", ".join(f"{name} ({'required' if f.is_required() else 'optional'})" for name, f in fields.items())
+    return f"{spec.name} accepts only: {listed}."
+
+
+# Resource label -> (list tool that returns its ids, id argument name), for recovery hints.
+LOOKUP_HINTS = {
+    "card": ("list_cards", "card_id"),
+    "transaction": ("list_transactions", "transaction_id"),
+    "dispute": ("list_disputes", "dispute_id"),
+}
+
+
 def _not_found_message(label: str) -> str:
     # Identical for NOT_OWNER and NOT_FOUND so errors never reveal whether another customer's id exists.
-    return f"No such {label} for this customer. Look IDs up with a list tool instead of guessing."
+    tool, arg = LOOKUP_HINTS[label]
+    return (
+        f"No such {label} for this customer. Call {tool} and copy the exact {arg} from its output; never construct one."
+    )
 
 
 def _authorize(args: BaseModel, ctx: Ctx) -> dict[str, dict[str, Any]]:
