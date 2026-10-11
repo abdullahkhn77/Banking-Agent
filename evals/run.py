@@ -86,6 +86,11 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     p.add_argument("--gate", choices=["none", "oracle", "thresholds"], default="none")
     p.add_argument("--quiet", action="store_true")
     p.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="allow a model run on test scenarios from a dirty working tree (recorded in meta)",
+    )
+    p.add_argument(
         "--regrade",
         default="",
         metavar="NAME",
@@ -156,6 +161,7 @@ def run_meta(args: argparse.Namespace, name: str, scenarios: list[dict[str, Any]
         "fault_rate": args.fault_rate,
         "http_retries": args.http_retries,
         "concurrency": args.concurrency,
+        "allow_dirty": args.allow_dirty,
         "prompt_version": prompt_version(),
         "tools_version": tools_version(),
         "scenarios_hash": _hash(SCENARIOS_PATH.read_bytes()),
@@ -166,6 +172,12 @@ def run_meta(args: argparse.Namespace, name: str, scenarios: list[dict[str, Any]
         "started_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "duration_s": None,
     }
+
+
+def dirty_test_run_refused(args: argparse.Namespace, meta: dict[str, Any]) -> bool:
+    """Model runs that touch the test split must come from a committed tree (replay oracle runs are exempt)."""
+    touches_test = args.split in ("test", "all")
+    return args.backend == "openai" and touches_test and bool(meta["git_dirty"]) and not args.allow_dirty
 
 
 def run_all(
@@ -246,9 +258,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("no scenarios match the selection", file=sys.stderr)
         return 2
     name = args.name or default_name(args)
+    meta = run_meta(args, name, scenarios)
+    if dirty_test_run_refused(args, meta):
+        print(
+            "refusing a model run on test scenarios from a dirty working tree: commit first "
+            "(or pass --allow-dirty, which is recorded in meta)",
+            file=sys.stderr,
+        )
+        return 3
     out_dir = RESULTS_DIR / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    meta = run_meta(args, name, scenarios)
     config = RunConfig(guardrails=args.guardrails == "on", fault_rate=args.fault_rate, http_retries=args.http_retries)
     started = time.perf_counter()
     rows = run_all(scenarios, args, build_backend(args, out_dir), config)

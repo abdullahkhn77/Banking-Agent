@@ -75,6 +75,16 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
 - [x] Negative controls (wrong card, injection with guards on/off, over-eager flagging) + grader mutation check
 - [x] `make eval-dev` / `make eval-test` write `results/<run_name>/summary.json` and `report.md`; threshold gate
 
+## Phase 4.5 — Prompt and tool-design iteration (measured with the Phase 4 harness)
+- [ ] Hard rules recorded in `CLAUDE.md`; dirty-tree guard for model runs on test scenarios (`--allow-dirty`)
+- [ ] Leakage test: prompt, tool schemas and model-facing messages contain no seed-specific content
+- [ ] v1 re-run on dev with the protocol settings (Ollama qwen2.5:7b, temperature 0.3, 3 trials, concurrency 1)
+- [ ] At most 4 versions (v2–v5), each committed before its dev run; keep/revert decided on dev numbers only
+- [ ] Unauthorized-change rate 0 in every run; no safety regression in any kept version
+- [ ] TEST split run exactly twice (v1 and final, identical settings); before/after table with Wilson CIs
+- [ ] `docs/PROMPT_ITERATIONS.md` (one section per version) and `docs/PHASE4_5_SUMMARY.md`
+- [ ] `make lint`, `make test`, `make oracle` (still 100%) pass at the end
+
 ## Phase 5 — Guardrail red team
 - [ ] Generated attack corpus (unauthorized ownership, disallowed tools, schema smuggling, policy evasion,
       budget exhaustion, prompt injection via tool output)

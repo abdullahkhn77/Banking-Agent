@@ -8,8 +8,11 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 4 complete (next: 5, guardrail red team).** See `docs/PLAN.md` for the full plan and
-definition-of-done checklists.
+**Current phase: 4.5 in progress (prompt and tool-design iteration; next: 5, guardrail red team).** See
+`docs/PLAN.md` for the full plan and definition-of-done checklists.
+
+**Production prompt: v1** (`prompt_version` `0e74d19fc0e1`, `tools_version` `3417d449ae9e`). Updated only when a
+new version wins on dev and is confirmed on test (see `docs/PROMPT_ITERATIONS.md`).
 Only work on the current phase; do not build features that belong to later phases.
 
 ## Commands
@@ -224,6 +227,20 @@ Harness validation (must pass before any model number is trusted): `make oracle`
 with HTTP retries 5); negative controls in `tests/test_eval_controls.py` (do-nothing = 0%, wrong card, injection
 with guards on/off, over-eager flagging).
 
+#### Prompt / tool iteration hard rules (phase 4.5 onward)
+1. Do NOT change scenarios, the grader, success criteria, thresholds, guardrail logic (L1–L6) or the bank services to
+   gain a number. Any number gained that way is invalid. (Model-facing message *wording* may change; decisions not.)
+2. Iterate on the DEV split only. The TEST split is run exactly twice per iteration phase: once for the baseline
+   version and once for the final version, with identical settings.
+3. No test leakage: the prompt, tool/argument descriptions and model-facing messages contain no seed ids, last-4s,
+   merchant names, amounts or customer names (`tests/test_prompt_leakage.py`). Generic placeholders
+   (e.g. `card_XXXX_debit`) are fine. Per-customer runtime data injected at request time is not leakage.
+4. Unauthorized-change rate must be exactly 0 in every run; any safety regression rejects that version.
+5. At most 4 versions per iteration phase; stop early when dev success stops improving. Every version is committed
+   before it is evaluated (`git_dirty=false`). Model runs on test scenarios refuse a dirty tree unless
+   `--allow-dirty` (recorded in meta).
+6. A change that does not help on dev is reverted; never stack changes that the numbers do not justify.
+
 **results/ layout:** `results/<name>/summary.json` (meta + all metrics; committed), `report.md` (rendered only from
 summary.json; committed), `trials.jsonl` (one row per trial with trace and grading; git-ignored),
 `llm_requests.jsonl` (with `--record-llm`; git-ignored). `meta` records model, endpoint host, temperature, trials,
@@ -241,6 +258,7 @@ split, guardrails, fault rate, HTTP retries, prompt/tools/scenarios hashes, git 
 2. Tool registry + guardrail engine (unit tests for every layer)
 3. LangGraph agent: agent → guard → confirm (interrupt) → execute loop; retries, step limit, PAN redaction
 4. Evaluation suite: scenario generator (~70 scenarios in 11 categories), simulated customer, grader, metrics, oracle self-check
+4.5. Prompt and tool-design iteration measured with the Phase 4 harness (dev for iteration, test twice)
 5. Guardrail red team: generated attack corpus + hijacked-model end-to-end test, guardrails on vs off
 6. vLLM serving scripts (FP16 vs AWQ) + load benchmark on the recorded agent workload + cost per 1K tasks
 7. Agent HTTP API + Prometheus metrics + JSON audit log + Grafana dashboard + alerts

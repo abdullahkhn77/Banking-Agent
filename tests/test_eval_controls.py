@@ -255,3 +255,24 @@ def test_regrade_reproduces_a_run_from_stored_trials(tmp_path: Path, monkeypatch
     after = json.loads((tmp_path / "r" / "summary.json").read_text())
     assert after["metrics"] == before["metrics"] and after["meta"]["regraded_at"]
     assert (tmp_path / "r" / "report.md").read_text() == render_report(after)
+
+
+def test_model_runs_on_test_scenarios_refuse_a_dirty_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run_module, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(run_module, "_git", lambda *args: " M agent/prompts.py" if args[0] == "status" else "abc123")
+    monkeypatch.setattr(run_module, "build_backend", lambda args, out: lambda s: ReplayLLM(s["reference"]))
+    test_id = next(s["id"] for s in SCENARIOS.values() if s["split"] == "test")
+    dev_id = next(s["id"] for s in SCENARIOS.values() if s["split"] == "dev")
+
+    def run(*extra: str) -> int:
+        return run_module.main(["--quiet", *extra])
+
+    assert run("--backend", "openai", "--split", "test", "--ids", test_id, "--name", "t") == 3
+    assert run("--backend", "openai", "--split", "all", "--ids", test_id, "--name", "a") == 3
+    assert not (tmp_path / "t").exists() and not (tmp_path / "a").exists()
+    assert run("--backend", "openai", "--split", "test", "--ids", test_id, "--name", "ok", "--allow-dirty") == 0
+    meta = json.loads((tmp_path / "ok" / "summary.json").read_text())["meta"]
+    assert meta["git_dirty"] is True and meta["allow_dirty"] is True
+    # dev-split model runs and replay oracle runs are not blocked
+    assert run("--backend", "openai", "--split", "dev", "--ids", dev_id, "--name", "d") == 0
+    assert run("--backend", "replay", "--split", "all", "--ids", test_id, "--name", "r") == 0
