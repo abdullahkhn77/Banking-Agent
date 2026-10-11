@@ -11,8 +11,9 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Current phase: 4.5 in progress (prompt and tool-design iteration; next: 5, guardrail red team).** See
 `docs/PLAN.md` for the full plan and definition-of-done checklists.
 
-**Production prompt: v1** (`prompt_version` `0e74d19fc0e1`, `tools_version` `3417d449ae9e`). Updated only when a
-new version wins on dev and is confirmed on test (see `docs/PROMPT_ITERATIONS.md`).
+**Production prompt: v1′** (`prompt_version` `0e74d19fc0e1`, `tools_version` `ccba6d30904b`; commit `fd5d14d`):
+v1 with the leaked seed-id example replaced by a placeholder. Phase 4.5 candidates v2–v5 were all rejected by the
+pre-registered safety gate (see `docs/PROMPT_ITERATIONS.md`). Changed only when a new version passes every gate line.
 Only work on the current phase; do not build features that belong to later phases.
 
 ## Commands
