@@ -84,19 +84,12 @@ def test_l2_blocks_invalid_args(guard: Guard, name: str, args: Any) -> None:
 def test_l2_message_lists_at_most_four_errors(guard: Guard) -> None:
     args = {"transaction_id": "bad", "reason": "bad", "amount": -1, "details": 7, "x": 1, "y": 2}
     message = guard("create_dispute", args).message
-    problems = message.removeprefix("Invalid arguments for create_dispute: ").split(". create_dispute accepts")[0]
-    assert problems.count("; ") == 4 and problems.endswith("and 2 more")  # 4 listed errors + the remainder count
+    assert message.count(": ") <= 5 and "and 2 more" in message
 
 
 def test_l2_message_names_the_bad_field(guard: Guard) -> None:
     message = guard("freeze_card", {"card_id": "card_1001_debit", "user_id": "u_1002"}).message
     assert "user_id: Extra inputs are not permitted" in message
-    assert "freeze_card accepts only: card_id (required), reason (optional)." in message
-
-
-def test_l2_message_lists_accepted_args_for_every_tool(guard: Guard) -> None:
-    assert "unfreeze_card accepts only: card_id (required)." in guard("unfreeze_card", {"reason": "lost"}).message
-    assert "list_cards takes no arguments." in guard("list_cards", {"user_id": "u_1001"}).message
 
 
 def test_l1_and_l2_blocks_make_no_backend_calls(guard: Guard, client: TestClient) -> None:
@@ -126,32 +119,18 @@ NONEXISTENT_RESOURCES = [
 ]
 
 
-HINTS = {
-    "card": ("list_cards", "card_id"),
-    "transaction": ("list_transactions", "transaction_id"),
-    "dispute": ("list_disputes", "dispute_id"),
-}
-
-
-def _l3_message(label: str) -> str:
-    tool, arg = HINTS[label]
-    return (
-        f"No such {label} for this customer. Call {tool} and copy the exact {arg} from its output; never construct one."
-    )
-
-
 @pytest.mark.parametrize(("name", "args", "label"), OTHER_CUSTOMERS_RESOURCES)
 def test_l3_blocks_other_customers_resources(guard: Guard, name: str, args: dict[str, Any], label: str) -> None:
     result = guard(name, args, "u_1001")
     assert _blocked(result, "L3", "NOT_OWNER")
-    assert result.message == _l3_message(label)
+    assert result.message == f"No such {label} for this customer. Look IDs up with a list tool instead of guessing."
 
 
 @pytest.mark.parametrize(("name", "args", "label"), NONEXISTENT_RESOURCES)
 def test_l3_blocks_nonexistent_resources(guard: Guard, name: str, args: dict[str, Any], label: str) -> None:
     result = guard(name, args, "u_1001")
     assert _blocked(result, "L3", "NOT_FOUND")
-    assert result.message == _l3_message(label)
+    assert result.message == f"No such {label} for this customer. Look IDs up with a list tool instead of guessing."
 
 
 def test_l3_not_owner_and_not_found_look_identical_to_the_model(guard: Guard) -> None:

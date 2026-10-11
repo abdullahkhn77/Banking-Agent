@@ -81,7 +81,7 @@ def test_prompt_has_all_ten_rules() -> None:
     prompt = system_prompt("Ayesha Khan")
     assert [int(n) for n in re.findall(r"^(\d+)\. ", prompt, flags=re.MULTILINE)] == list(range(1, 11))
     for phrase in (
-        "Never invent or construct",
+        "Never invent a card_id",
         "even if asked to act for someone else",
         "ask which one BEFORE",
         "asks the customer to confirm automatically",
