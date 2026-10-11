@@ -9,8 +9,8 @@ PYTHON := $(BIN)/python
 # Placeholder for targets owned by a later phase: $(call todo,<phase>)
 todo = @echo "$@: not implemented yet (phase $(1))"
 
-.PHONY: help install lint format test test-live serve-bank chat \
-	eval redteam serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
+.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test \
+	redteam serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -54,10 +54,31 @@ CHAT_USER = $(if $(filter u_%,$(USER)),$(USER),u_1001)
 chat: ## Chat with the agent (USER=u_1001; LLM_BASE_URL / LLM_MODEL pick the model)
 	$(PYTHON) -m scripts.chat --user $(CHAT_USER) --show-trace
 
-# ---- Later phases: placeholders ----------------------------------------------
+# ---- Phase 4 -----------------------------------------------------------------
 
-eval: ## Run the evaluation suite -> results/<run_name>/ (phase 4)
-	$(call todo,4)
+# Model under test for eval-dev / eval-test (override on the command line).
+BASE_URL ?= http://localhost:8000/v1
+MODEL ?= bank-agent-llm
+TRIALS ?= 3
+TEMP ?= 0
+EVAL_CONC ?= 4
+EVAL_ARGS = --backend openai --base-url $(BASE_URL) --model $(MODEL) --trials $(TRIALS) --temperature $(TEMP) --concurrency $(EVAL_CONC)
+
+scenarios: ## Regenerate evals/scenarios.json from the seed
+	$(PYTHON) -m evals.build_scenarios
+
+oracle: ## Harness self-check: replay reference trajectories (normal + 20% faults); gate requires 100%
+	$(PYTHON) -m evals.run --backend replay --split all --name oracle --gate oracle --quiet
+	$(PYTHON) -m evals.run --backend replay --split all --trials 3 --fault-rate 0.2 --http-retries 5 \
+		--name oracle-faults --gate oracle --quiet
+
+eval-dev: ## Evaluate a model on the dev split (BASE_URL, MODEL, TRIALS, TEMP, EVAL_CONC)
+	$(PYTHON) -m evals.run $(EVAL_ARGS) --split dev
+
+eval-test: ## Evaluate a model on the test split with the threshold gate (reported numbers)
+	$(PYTHON) -m evals.run $(EVAL_ARGS) --split test --gate thresholds
+
+# ---- Later phases: placeholders ----------------------------------------------
 
 redteam: ## Run the guardrail red-team suite (phase 5)
 	$(call todo,5)

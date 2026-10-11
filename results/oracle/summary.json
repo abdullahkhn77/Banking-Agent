@@ -1,0 +1,255 @@
+{
+  "name": "oracle",
+  "meta": {
+    "name": "oracle",
+    "note": null,
+    "backend": "replay",
+    "model": "reference-trajectories",
+    "base_url_host": null,
+    "temperature": null,
+    "max_tokens": null,
+    "trials": 1,
+    "split": "all",
+    "categories": [
+      "adversarial",
+      "anomaly_flag",
+      "anomaly_none",
+      "card_freeze",
+      "card_unfreeze",
+      "clarification",
+      "dispute",
+      "info_lookup",
+      "multi_step",
+      "policy_rejection",
+      "user_declines"
+    ],
+    "scenarios": 69,
+    "guardrails": "on",
+    "fault_rate": 0.0,
+    "http_retries": 3,
+    "concurrency": 1,
+    "prompt_version": "0e74d19fc0e1",
+    "tools_version": "3417d449ae9e",
+    "scenarios_hash": "a977060b5419",
+    "git_commit": "242edb0e12e17622a46fb689e0c5cf60e4a7518f",
+    "git_dirty": true,
+    "python": "3.12.15",
+    "packages": {
+      "langgraph": "1.2.14",
+      "langchain-core": "1.6.9",
+      "langchain-openai": "1.7.0",
+      "pydantic": "2.14.0",
+      "fastapi": "0.143.0"
+    },
+    "started_at": "2026-10-11T00:09:53+00:00",
+    "duration_s": 0.82
+  },
+  "metrics": {
+    "headline": {
+      "trials": 69,
+      "scenarios": 69,
+      "task_success_rate": 1.0,
+      "task_success_ci95_low": 0.9473,
+      "task_success_ci95_high": 1.0,
+      "tool_selection_accuracy": 1.0,
+      "argument_accuracy": 1.0,
+      "required_lookup_rate": 1.0,
+      "clarification_rate": 1.0,
+      "malformed_tool_call_rate": 0.0
+    },
+    "pass_hat_k": {
+      "1": 1.0
+    },
+    "safety": {
+      "unsafe_attempt_rate": 0.0,
+      "unsafe_calls": 0,
+      "unsafe_calls_blocked": 0,
+      "unsafe_block_rate": null,
+      "unauthorized_change_rate": 0.0,
+      "unintended_change_rate": 0.0,
+      "guardrail_blocks": 3,
+      "blocks_by_layer": {
+        "L4": 3
+      },
+      "blocks_by_code": {
+        "CARD_REPORTED_STOLEN": 1,
+        "DISPUTE_WINDOW_EXPIRED": 1,
+        "DUPLICATE_DISPUTE": 1
+      },
+      "confirmations_requested": 76,
+      "confirmations_approved": 69
+    },
+    "latency": {
+      "task_p50_s": 0.0048,
+      "task_p95_s": 0.0113,
+      "llm_call_p50_s": 0.0,
+      "llm_call_p95_s": 0.0,
+      "llm_calls_per_task": 2.6667
+    },
+    "tokens": {
+      "input_tokens_per_task": 0.0,
+      "output_tokens_per_task": 0.0,
+      "input_tokens_total": 0,
+      "output_tokens_total": 0
+    },
+    "reliability": {
+      "faults_injected": 0,
+      "retries": 0,
+      "step_limit_hits": 0,
+      "llm_errors": 0,
+      "harness_errors": 0
+    },
+    "by_category": {
+      "adversarial": {
+        "n": 10,
+        "successes": 10,
+        "success_rate": 1.0,
+        "ci95": [
+          0.7225,
+          1.0
+        ]
+      },
+      "anomaly_flag": {
+        "n": 8,
+        "successes": 8,
+        "success_rate": 1.0,
+        "ci95": [
+          0.6756,
+          1.0
+        ]
+      },
+      "anomaly_none": {
+        "n": 4,
+        "successes": 4,
+        "success_rate": 1.0,
+        "ci95": [
+          0.5101,
+          1.0
+        ]
+      },
+      "card_freeze": {
+        "n": 9,
+        "successes": 9,
+        "success_rate": 1.0,
+        "ci95": [
+          0.7009,
+          1.0
+        ]
+      },
+      "card_unfreeze": {
+        "n": 6,
+        "successes": 6,
+        "success_rate": 1.0,
+        "ci95": [
+          0.6097,
+          1.0
+        ]
+      },
+      "clarification": {
+        "n": 4,
+        "successes": 4,
+        "success_rate": 1.0,
+        "ci95": [
+          0.5101,
+          1.0
+        ]
+      },
+      "dispute": {
+        "n": 9,
+        "successes": 9,
+        "success_rate": 1.0,
+        "ci95": [
+          0.7009,
+          1.0
+        ]
+      },
+      "info_lookup": {
+        "n": 6,
+        "successes": 6,
+        "success_rate": 1.0,
+        "ci95": [
+          0.6097,
+          1.0
+        ]
+      },
+      "multi_step": {
+        "n": 6,
+        "successes": 6,
+        "success_rate": 1.0,
+        "ci95": [
+          0.6097,
+          1.0
+        ]
+      },
+      "policy_rejection": {
+        "n": 3,
+        "successes": 3,
+        "success_rate": 1.0,
+        "ci95": [
+          0.4385,
+          1.0
+        ]
+      },
+      "user_declines": {
+        "n": 4,
+        "successes": 4,
+        "success_rate": 1.0,
+        "ci95": [
+          0.5101,
+          1.0
+        ]
+      }
+    },
+    "by_difficulty": {
+      "adversarial": {
+        "n": 10,
+        "successes": 10,
+        "success_rate": 1.0,
+        "ci95": [
+          0.7225,
+          1.0
+        ]
+      },
+      "multi_step": {
+        "n": 19,
+        "successes": 19,
+        "success_rate": 1.0,
+        "ci95": [
+          0.8318,
+          1.0
+        ]
+      },
+      "single_action": {
+        "n": 40,
+        "successes": 40,
+        "success_rate": 1.0,
+        "ci95": [
+          0.9124,
+          1.0
+        ]
+      }
+    },
+    "by_split": {
+      "dev": {
+        "n": 25,
+        "successes": 25,
+        "success_rate": 1.0,
+        "ci95": [
+          0.8668,
+          1.0
+        ]
+      },
+      "test": {
+        "n": 44,
+        "successes": 44,
+        "success_rate": 1.0,
+        "ci95": [
+          0.9197,
+          1.0
+        ]
+      }
+    },
+    "failure_tags": {},
+    "failed_trials": []
+  }
+}

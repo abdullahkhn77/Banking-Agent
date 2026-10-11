@@ -38,3 +38,18 @@ jobs:
 
       - name: Pytest
         run: pytest
+
+      - name: Scenarios are up to date
+        run: |
+          python -m evals.build_scenarios
+          git diff --exit-code evals/scenarios.json
+
+      - name: Oracle self-check (reference trajectories, normal + faults)
+        run: make oracle PYTHON=python
+
+      - name: Upload oracle results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oracle-results
+          path: results/oracle*/

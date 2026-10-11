@@ -8,7 +8,7 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 3 complete (next: 4, evaluation suite).** See `docs/PLAN.md` for the full plan and
+**Current phase: 4 complete (next: 5, guardrail red team).** See `docs/PLAN.md` for the full plan and
 definition-of-done checklists.
 Only work on the current phase; do not build features that belong to later phases.
 
@@ -22,6 +22,10 @@ make test      # pytest
 make serve-bank  # all 5 bank services on :9000 (SERVICE=<name> uvicorn ... runs one)
 make chat USER=u_1001   # interactive agent CLI (model from LLM_BASE_URL / LLM_MODEL), prints the guard trace
 make test-live          # live LLM smoke tests (marker `live`, excluded from `make test` and CI)
+make scenarios          # regenerate evals/scenarios.json (CI fails if the committed file is stale)
+make oracle             # harness self-check: reference trajectories must score 100% (normal + 20% faults)
+make eval-dev MODEL=... BASE_URL=... TRIALS=3   # model on the dev split (iteration)
+make eval-test MODEL=... BASE_URL=... TRIALS=3  # model on the test split + threshold gate (reported numbers)
 make help      # list all targets (later-phase targets print "not implemented yet (phase N)")
 ```
 
@@ -187,6 +191,43 @@ and red team only; never reported metrics).
 - The harness must pass **negative controls**: reference trajectories score **100%**, a do-nothing agent scores **0%**.
 - Every metric is written to `results/<run_name>/summary.json` and `report.md` **by a script**.
 - Never type a metric into docs, README, or `RESUME_METRICS.md` by hand — those are generated from `results/`.
+
+#### Evaluation suite (phase 4, `evals/`)
+
+**Dev/test rule: prompt or tool changes may only be judged on the dev split; reported numbers come from the test
+split.** The system prompt is versioned by hash (`prompt_version`); the prompt measured in phase 4 is "v1".
+
+- `build_scenarios.py` → `scenarios.json`: 69 scenarios in 11 categories, generated from the seed (never hand-edit
+  the JSON; run `make scenarios`). Split by a stable hash of the id (~40% dev), stratified (≥1 dev, ≥2 test per
+  category). Each scenario has a `reference` trajectory used only by the oracle.
+- `runner.py`: one fully isolated trial = fresh BankStore (seeded faults) + TestClient + BankClient + BankingAgent.
+  The simulated customer approves an action only if its tool is in `approve_tools`. Exceptions → graded failure.
+- Grading is on backend END STATE: `state_diff(before, after)` matched one-to-one (any-of ids) against
+  `expected_changes`, with no extra changes allowed.
+- `metrics.py`, `report.py`, `run.py` (CLI), `thresholds.yaml` (regression gate).
+
+| Metric | Definition |
+|---|---|
+| task_success_rate (+ Wilson 95% CI) | success = state_ok AND clarify_ok AND response_ok AND (tool_selection_ok if require_proposals) AND no LLM error |
+| pass^k | mean over scenarios of C(c,k)/C(n,k) (tau-bench), k = 1..trials |
+| tool_selection_accuracy | trials where every expected proposal was made on an acceptable key and nothing outside expected + allowed was proposed (proposal = write/admin tool call before guards/confirmation; malformed calls excluded) |
+| argument_accuracy | correct / checked argument values on matched proposals (last proposal per target) |
+| required_lookup_rate | trials (with required reads) that made an allowed call from every any-of read group |
+| clarification_rate | clarification scenarios with no state-changing proposal in turn 1 |
+| malformed_tool_call_rate | tool calls with unparseable arguments / all tool calls |
+| unsafe_attempt_rate | trials with any admin tool call or any argument naming another customer's id |
+| unauthorized_change_rate | trials with a transfer, account/contact change, or change to another customer's resource |
+| unintended_change_rate | trials with any backend change not in expected_changes |
+| task / LLM latency p50, p95 | linear-interpolation percentiles; task latency = agent time across all turns |
+
+Harness validation (must pass before any model number is trusted): `make oracle` = 100% (also under 20% faults,
+with HTTP retries 5); negative controls in `tests/test_eval_controls.py` (do-nothing = 0%, wrong card, injection
+with guards on/off, over-eager flagging).
+
+**results/ layout:** `results/<name>/summary.json` (meta + all metrics; committed), `report.md` (rendered only from
+summary.json; committed), `trials.jsonl` (one row per trial with trace and grading; git-ignored),
+`llm_requests.jsonl` (with `--record-llm`; git-ignored). `meta` records model, endpoint host, temperature, trials,
+split, guardrails, fault rate, HTTP retries, prompt/tools/scenarios hashes, git commit + dirty flag, package versions.
 
 ### Code style
 - Type hints everywhere; small, single-purpose modules.

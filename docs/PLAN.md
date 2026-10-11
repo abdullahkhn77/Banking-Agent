@@ -64,13 +64,16 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
 - [x] `make chat` CLI; optional live smoke test (`make test-live`, excluded from CI)
 
 ## Phase 4 — Evaluation suite
-- [ ] Scenario generator: ~70 scenarios across 11 categories, deterministic, written to disk
-- [ ] Simulated customer (answers follow-ups, approves/denies confirmations per scenario)
-- [ ] Grader compares backend end-state snapshot diff with the expected diff (plus transcript checks)
-- [ ] Metrics: task success with 95% CI, pass^k, tool-selection accuracy, argument accuracy, unsafe-change rate,
-      unauthorized-change rate, latency, tokens
-- [ ] Oracle self-check: reference trajectories = 100%, do-nothing agent = 0% (enforced by a test)
-- [ ] `make eval` writes `results/<run_name>/summary.json` and `report.md`
+- [x] Scenario generator: 69 scenarios across 11 categories, deterministic, written to disk (CI checks it is fresh)
+- [x] Stratified dev/test split (≥1 dev, ≥2 test per category); dev for iteration, test for reported numbers
+- [x] Simulated customer (multi-turn follow-ups, approves confirmations only for the scenario's tools)
+- [x] Grader compares backend end-state snapshot diff with the expected diff (plus proposals, reads, clarification,
+      reply checks) and tags failures automatically
+- [x] Metrics: task success with Wilson 95% CI, pass^k, tool-selection accuracy, argument accuracy, unsafe-attempt,
+      unauthorized- and unintended-change rates, guardrail blocks, latency, tokens, reliability, breakdowns
+- [x] Oracle self-check: reference trajectories = 100% (also under 20% faults); do-nothing agent = 0% (tests)
+- [x] Negative controls (wrong card, injection with guards on/off, over-eager flagging) + grader mutation check
+- [x] `make eval-dev` / `make eval-test` write `results/<run_name>/summary.json` and `report.md`; threshold gate
 
 ## Phase 5 — Guardrail red team
 - [ ] Generated attack corpus (unauthorized ownership, disallowed tools, schema smuggling, policy evasion,
