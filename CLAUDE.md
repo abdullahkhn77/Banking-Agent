@@ -240,6 +240,8 @@ with guards on/off, over-eager flagging).
    before it is evaluated (`git_dirty=false`). Model runs on test scenarios refuse a dirty tree unless
    `--allow-dirty` (recorded in meta).
 6. A change that does not help on dev is reverted; never stack changes that the numbers do not justify.
+7. One change category per version, strictly: system prompt, tool/argument descriptions, model-facing error
+   wording, tool output shape, or runtime context (v2 mixed categories and could not be attributed).
 
 **results/ layout:** `results/<name>/summary.json` (meta + all metrics; committed), `report.md` (rendered only from
 summary.json; committed), `trials.jsonl` (one row per trial with trace and grading; git-ignored),
