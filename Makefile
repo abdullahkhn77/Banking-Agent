@@ -9,8 +9,8 @@ PYTHON := $(BIN)/python
 # Placeholder for targets owned by a later phase: $(call todo,<phase>)
 todo = @echo "$@: not implemented yet (phase $(1))"
 
-.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test \
-	redteam serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
+.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test redteam \
+	 serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -78,10 +78,13 @@ eval-dev: ## Evaluate a model on the dev split (BASE_URL, MODEL, TRIALS, TEMP, E
 eval-test: ## Evaluate a model on the test split with the threshold gate (reported numbers)
 	$(PYTHON) -m evals.run $(EVAL_ARGS) --split test --gate thresholds
 
+# ---- Phase 5 -----------------------------------------------------------------
+
+redteam: ## Red team A+B: guardrail corpus + hijacked-model grid (deterministic, gated) -> results/redteam
+	$(PYTHON) -m evals.redteam
+
 # ---- Later phases: placeholders ----------------------------------------------
 
-redteam: ## Run the guardrail red-team suite (phase 5)
-	$(call todo,5)
 
 serve-fp16: ## Serve the LLM with vLLM, FP16 (phase 6)
 	$(call todo,6)
