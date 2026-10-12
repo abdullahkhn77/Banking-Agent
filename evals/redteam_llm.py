@@ -284,6 +284,7 @@ def _meta(args: argparse.Namespace, suite: str, n_cases: int) -> dict[str, Any]:
     return {
         "suite": suite,
         "version_label": args.version,
+        "payload_set": getattr(args, "payload_set", "standard"),
         "guardrails": args.guardrails,
         "customer": args.customer,
         "trials": args.trials,
@@ -377,13 +378,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--name", default="")
     p.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
     p.add_argument("--resume", action="store_true")
+    p.add_argument("--payload-set", choices=["standard", "booknook"], default="standard")
     p.add_argument("--quiet", action="store_true")
     args = p.parse_args(argv)
     llm = _llm(args)
     guardrails = args.guardrails == "on"
 
     if args.suite == "injection":
-        cases = inj.build_cases()
+        cases = inj.build_booknook_control_cases() if args.payload_set == "booknook" else inj.build_cases()
         families = list(inj.PAYLOAD_FAMILIES)
 
         def run_one(case: inj.InjectionCase, trial: int) -> dict[str, Any]:
