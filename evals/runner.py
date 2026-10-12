@@ -13,7 +13,9 @@ import re
 import traceback
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -21,6 +23,7 @@ from fastapi.testclient import TestClient
 from agent.client import BankClient
 from agent.graph import BankingAgent
 from agent.guardrails import GuardConfig
+from agent.guardrails import _summary as render_confirmation_summary  # read-only use; agent/ stays unchanged
 from agent.llm import LLMBackend
 from agent.tools import ADMIN_TOOLS, REGISTRY, WRITE_TOOLS
 from bank_services.app import create_app
@@ -35,6 +38,9 @@ PROPOSAL_TOOLS = WRITE_TOOLS | ADMIN_TOOLS
 LLMFactory = Callable[[dict[str, Any]], LLMBackend]
 
 
+CUSTOMERS = ("tool", "careful")
+
+
 @dataclass(frozen=True)
 class RunConfig:
     guardrails: bool = True
@@ -42,6 +48,7 @@ class RunConfig:
     http_retries: int = 3
     max_steps: int = 10
     max_writes: int = 6
+    customer: str = "tool"  # tool: approve by tool (official agent-only number); careful: approve by summary
 
 
 def load_scenarios(path: Path = SCENARIOS_PATH) -> list[dict[str, Any]]:
@@ -65,6 +72,39 @@ INJECTION_TARGET_CARD = PLANTED_CASES["stolen_card"][0]
 INJECTION_TARGET_LAST4 = build_seed()["cards"][INJECTION_TARGET_CARD]["last4"]
 
 
+SEED_STATE = build_seed()  # static fields only: card type/last4, merchant, amount, date
+
+
+def acceptable_summaries(scenario: Mapping[str, Any]) -> set[str]:
+    """Confirmation summaries of every acceptable expected proposal (each key x each acceptable argument value).
+
+    The careful customer approves an action only if its summary is one of these, so it decides on exactly what a
+    real customer sees in the confirmation (docs/REDTEAM_PLAN.md, part C).
+    """
+    summaries: set[str] = set()
+    for proposal in scenario["expected_proposals"]:
+        spec = REGISTRY[proposal["tool"]]
+        collection = "cards" if spec.key_arg == "card_id" else "transactions"
+        args = proposal.get("args", {})
+        for key in _as_list(proposal["key"]):
+            resources = {spec.key_arg: SEED_STATE[collection][key]}
+            for reason in args.get("reason", [None]):
+                for amount in args.get("amount", [None]):
+                    values = SimpleNamespace(reason=reason, amount=None if amount is None else Decimal(str(amount)))
+                    summaries.add(render_confirmation_summary(spec, values, resources))
+    return summaries
+
+
+def customer_approves(
+    customer: str, scenario: Mapping[str, Any], action: Mapping[str, Any], acceptable: set[str]
+) -> bool:
+    """Simulated customer decision for one pending action. Both customers require the tool to be one the
+    customer wants (approve_tools); the careful one also requires the summary to match an acceptable proposal."""
+    if action["tool"] not in scenario["approve_tools"]:
+        return False
+    return customer == "tool" or action["summary"] in acceptable
+
+
 def trial_seed(scenario_id: str, trial: int) -> int:
     return int(hashlib.sha256(f"{scenario_id}:{trial}".encode()).hexdigest()[:8], 16)
 
@@ -83,6 +123,7 @@ def run_trial(scenario: dict[str, Any], trial: int, llm_factory: LLMFactory, con
         "trial": trial,
         "required_reads_n": len(scenario["required_reads"]),
         "clarify_first": scenario["clarify_first"],
+        "customer": config.customer,
     }
     run: dict[str, Any] = {
         "replies": [],
@@ -103,7 +144,7 @@ def run_trial(scenario: dict[str, Any], trial: int, llm_factory: LLMFactory, con
             )
             before = store.snapshot()
             thread, user = f"{scenario['id']}:{trial}", scenario["user_id"]
-            approve = set(scenario["approve_tools"])
+            acceptable = acceptable_summaries(scenario) if config.customer == "careful" else set()
             for text in scenario["turns"]:
                 run["turn_starts"].append(len(agent.state(thread, user).get("trace", [])))
                 result = agent.send(thread, user, text)
@@ -111,7 +152,11 @@ def run_trial(scenario: dict[str, Any], trial: int, llm_factory: LLMFactory, con
                 for _ in range(MAX_CONFIRMATIONS_PER_TURN):
                     if result.confirmation is None:
                         break
-                    approved = [a["action_id"] for a in result.confirmation["actions"] if a["tool"] in approve]
+                    approved = [
+                        a["action_id"]
+                        for a in result.confirmation["actions"]
+                        if customer_approves(config.customer, scenario, a, acceptable)
+                    ]
                     result = agent.resume(thread, user, {"approved_ids": approved})
                     run["latency_s"] += result.latency_s
                 else:
@@ -138,7 +183,8 @@ ROW_FIELDS = ("scenario_id", "category", "difficulty", "split", "user_id", "tria
 def regrade_row(scenario: dict[str, Any], row: Mapping[str, Any]) -> dict[str, Any]:
     """Grade a stored trial again with the current grader (the recorded model outputs are not changed)."""
     run = {field: row[field] for field in RUN_FIELDS}
-    return {**{field: row[field] for field in ROW_FIELDS}, **run, **grade(scenario, run)}
+    extra = {"customer": row["customer"]} if "customer" in row else {}
+    return {**{field: row[field] for field in ROW_FIELDS}, **extra, **run, **grade(scenario, run)}
 
 
 # ---- state diff and change matching -------------------------------------------------------------------------------

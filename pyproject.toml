@@ -14,6 +14,10 @@ extend-exclude = ["notebooks"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# Jailbreak attack texts are long string literals by nature; keep them on one line each.
+"evals/jailbreak.py" = ["E501"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["agent", "api", "bank_services", "evals", "monitoring", "scripts", "serving"]
 

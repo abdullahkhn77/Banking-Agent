@@ -35,3 +35,6 @@ results/**/llm_requests.jsonl
 .DS_Store
 .idea/
 .vscode/
+
+# Resumable-run fingerprints (meta in summary.json records the same settings)
+results/**/run_config.json

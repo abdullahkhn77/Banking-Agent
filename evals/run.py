@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import httpx
 import yaml
 
 from agent.config import Settings
@@ -34,7 +35,8 @@ from agent.prompts import SYSTEM_PROMPT
 from agent.tools import openai_tools
 from evals.metrics import compute_metrics, flat_metrics
 from evals.report import render_report
-from evals.runner import SCENARIOS_PATH, LLMFactory, RunConfig, load_scenarios, regrade_row, run_trial
+from evals.resumable import TrialLog
+from evals.runner import CUSTOMERS, SCENARIOS_PATH, LLMFactory, RunConfig, load_scenarios, regrade_row, run_trial
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = REPO_ROOT / "results"
@@ -86,6 +88,14 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     p.add_argument("--gate", choices=["none", "oracle", "thresholds"], default="none")
     p.add_argument("--quiet", action="store_true")
     p.add_argument(
+        "--customer",
+        choices=list(CUSTOMERS),
+        default="tool",
+        help="simulated customer: tool = approve by tool (official agent-only number); careful = approve by summary",
+    )
+    p.add_argument("--results-dir", type=Path, default=RESULTS_DIR, help="parent directory for results/<name>/")
+    p.add_argument("--resume", action="store_true", help="keep finished trials in results/<name>/ and skip them")
+    p.add_argument(
         "--allow-dirty",
         action="store_true",
         help="allow a model run on test scenarios from a dirty working tree (recorded in meta)",
@@ -109,7 +119,19 @@ def default_name(args: argparse.Namespace) -> str:
         name += "-noguard"
     if args.fault_rate:
         name += f"-faults{args.fault_rate:g}"
+    if args.customer != "tool":
+        name += f"-{args.customer}"
     return name
+
+
+def model_digest(base_url: str, model: str) -> str | None:
+    """The model's digest from an Ollama-style /api/tags endpoint, if the server exposes one (best effort)."""
+    parsed = urlparse(base_url)
+    try:
+        tags = httpx.get(f"{parsed.scheme}://{parsed.netloc}/api/tags", timeout=3).json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    return next((m.get("digest") for m in tags.get("models", []) if m.get("name") == model), None)
 
 
 def select_scenarios(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -162,6 +184,9 @@ def run_meta(args: argparse.Namespace, name: str, scenarios: list[dict[str, Any]
         "http_retries": args.http_retries,
         "concurrency": args.concurrency,
         "allow_dirty": args.allow_dirty,
+        "customer": args.customer,
+        "model_digest": None if replay else model_digest(args.base_url, args.model),
+        "scenario_ids": [s["id"] for s in scenarios],
         "prompt_version": prompt_version(),
         "tools_version": tools_version(),
         "scenarios_hash": _hash(SCENARIOS_PATH.read_bytes()),
@@ -180,23 +205,58 @@ def dirty_test_run_refused(args: argparse.Namespace, meta: dict[str, Any]) -> bo
     return args.backend == "openai" and touches_test and bool(meta["git_dirty"]) and not args.allow_dirty
 
 
+FINGERPRINT_KEYS = (
+    "backend",
+    "model",
+    "base_url_host",
+    "temperature",
+    "max_tokens",
+    "trials",
+    "split",
+    "scenario_ids",
+    "guardrails",
+    "fault_rate",
+    "http_retries",
+    "customer",
+    "prompt_version",
+    "tools_version",
+    "scenarios_hash",
+)
+
+
 def run_all(
-    scenarios: list[dict[str, Any]], args: argparse.Namespace, factory: LLMFactory, config: RunConfig
+    scenarios: list[dict[str, Any]],
+    args: argparse.Namespace,
+    factory: LLMFactory,
+    config: RunConfig,
+    log: TrialLog | None = None,
 ) -> list[dict[str, Any]]:
-    jobs = [(index, scenario, trial) for index, scenario in enumerate(scenarios) for trial in range(args.trials)]
-    rows: list[tuple[int, int, dict[str, Any]]] = []
+    """Run every (scenario, trial). With a TrialLog, each finished trial is appended as soon as it finishes, and
+    trials already in the log are skipped (resume)."""
+    done = log.done() if log else set()
+    jobs = [
+        (index, scenario, trial)
+        for index, scenario in enumerate(scenarios)
+        for trial in range(args.trials)
+        if (scenario["id"], trial) not in done
+    ]
     lock = threading.Lock()
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         futures = {pool.submit(run_trial, scenario, trial, factory, config): (i, trial) for i, scenario, trial in jobs}
-        for done, future in enumerate(as_completed(futures), start=1):
-            index, trial = futures[future]
+        for count, future in enumerate(as_completed(futures), start=1):
             row = future.result()
             with lock:
-                rows.append((index, trial, row))
+                if log:
+                    log.append(row)
                 if not args.quiet:
                     status = "PASS" if row["success"] else "FAIL " + ",".join(row["failure_tags"])
-                    print(f"[{done}/{len(jobs)}] {row['scenario_id']} t{trial}: {status} ({row['latency_s']:.1f}s)")
-    return [row for _, _, row in sorted(rows, key=lambda item: (item[0], item[1]))]
+                    print(
+                        f"[{count}/{len(jobs)}] {row['scenario_id']} t{row['trial']}: {status} "
+                        f"({row['latency_s']:.1f}s)"
+                    )
+    order = {scenario["id"]: index for index, scenario in enumerate(scenarios)}
+    rows = log.rows if log else []
+    return sorted(rows, key=lambda row: (order[row["scenario_id"]], row["trial"]))
 
 
 def gate_violations(gate: str, metrics: dict[str, Any], fault_rate: float) -> list[str]:
@@ -266,11 +326,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 3
-    out_dir = RESULTS_DIR / name
+    out_dir = args.results_dir / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    config = RunConfig(guardrails=args.guardrails == "on", fault_rate=args.fault_rate, http_retries=args.http_retries)
+    config = RunConfig(
+        guardrails=args.guardrails == "on",
+        fault_rate=args.fault_rate,
+        http_retries=args.http_retries,
+        customer=args.customer,
+    )
+    log = TrialLog(
+        out_dir,
+        {k: meta[k] for k in FINGERPRINT_KEYS},
+        key=lambda r: (r["scenario_id"], r["trial"]),
+        resume=args.resume,
+    )
+    meta["resumed_rows"] = log.resumed_rows
     started = time.perf_counter()
-    rows = run_all(scenarios, args, build_backend(args, out_dir), config)
+    rows = run_all(scenarios, args, build_backend(args, out_dir), config, log)
     meta["duration_s"] = round(time.perf_counter() - started, 2)
 
     metrics = compute_metrics(rows)

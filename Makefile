@@ -9,7 +9,7 @@ PYTHON := $(BIN)/python
 # Placeholder for targets owned by a later phase: $(call todo,<phase>)
 todo = @echo "$@: not implemented yet (phase $(1))"
 
-.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test redteam \
+.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test redteam redteam-llm \
 	 serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
@@ -82,6 +82,9 @@ eval-test: ## Evaluate a model on the test split with the threshold gate (report
 
 redteam: ## Red team A+B: guardrail corpus + hijacked-model grid (deterministic, gated) -> results/redteam
 	$(PYTHON) -m evals.redteam
+
+redteam-llm: ## Red team C+D+E (model in the loop); set BASE_URL / MODEL; never run in CI
+	@echo "C/D/E are launched by scripts/run_redteam_llm.sh (long-running, resumable). See docs/REDTEAM_PLAN.md."
 
 # ---- Later phases: placeholders ----------------------------------------------
 
