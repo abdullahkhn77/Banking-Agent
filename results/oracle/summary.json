@@ -29,10 +29,10 @@
     "http_retries": 3,
     "concurrency": 1,
     "allow_dirty": false,
-    "prompt_version": "921c935c4cc7",
-    "tools_version": "987e0fef3f9b",
+    "prompt_version": "0e74d19fc0e1",
+    "tools_version": "ccba6d30904b",
     "scenarios_hash": "a977060b5419",
-    "git_commit": "c4e97135f859a0f8158b05b541d2d1c5e5702e40",
+    "git_commit": "25cffeea364a06226005d5dab2dd6a7b7e03079a",
     "git_dirty": true,
     "python": "3.12.15",
     "packages": {
@@ -42,8 +42,8 @@
       "pydantic": "2.14.0",
       "fastapi": "0.143.0"
     },
-    "started_at": "2026-10-11T03:10:24+00:00",
-    "duration_s": 0.86
+    "started_at": "2026-10-12T00:48:14+00:00",
+    "duration_s": 0.82
   },
   "metrics": {
     "headline": {
@@ -81,8 +81,8 @@
       "confirmations_approved": 69
     },
     "latency": {
-      "task_p50_s": 0.005,
-      "task_p95_s": 0.0124,
+      "task_p50_s": 0.0048,
+      "task_p95_s": 0.0112,
       "llm_call_p50_s": 0.0,
       "llm_call_p95_s": 0.0,
       "llm_calls_per_task": 2.6667

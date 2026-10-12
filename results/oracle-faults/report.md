@@ -7,9 +7,9 @@
 | temperature / max tokens | None / None |
 | split / scenarios / trials | all / 69 / 3 |
 | guardrails / fault rate / HTTP retries | on / 0.2 / 5 |
-| prompt / tools / scenarios version | `921c935c4cc7` / `987e0fef3f9b` / `a977060b5419` |
-| git commit | `c4e97135f859` (dirty) |
-| started / duration | 2026-10-11T03:10:26+00:00 / 2.5 s |
+| prompt / tools / scenarios version | `0e74d19fc0e1` / `ccba6d30904b` / `a977060b5419` |
+| git commit | `25cffeea364a` (dirty) |
+| started / duration | 2026-10-12T00:48:16+00:00 / 2.5 s |
 
 ## Headline
 

@@ -7,11 +7,13 @@ unauthorized tool calls. An evaluation suite grades the agent on backend end sta
 task-completion reliability. The LLM is served through vLLM (FP16 vs AWQ 4-bit) with CI/CD and Prometheus/Grafana
 monitoring. Every reported metric is produced by a script and saved under `results/`.
 
-> **Status: phase 4 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
+> **Status: phase 4.5 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
 > anomaly detector; a retrying, idempotent bank client; the tool registry and layered guardrails (L1–L5); a
 > LangGraph agent that pauses every state-changing action for human confirmation (L6); and an end-state evaluation
-> suite (69 scenarios, oracle + negative controls). Reported model numbers come later from the vLLM test-split runs;
-> see [docs/PLAN.md](docs/PLAN.md) and `results/`.
+> suite (69 scenarios, oracle + negative controls). Phase 4.5 iterated on the prompt against that suite; the best
+> candidate was rejected by a pre-registered safety gate, so production stays on prompt v1′ (see
+> [docs/PROMPT_ITERATIONS.md](docs/PROMPT_ITERATIONS.md)). Reported model numbers come later from the vLLM runs; see
+> [docs/PLAN.md](docs/PLAN.md) and `results/`.
 
 ## Setup
 
