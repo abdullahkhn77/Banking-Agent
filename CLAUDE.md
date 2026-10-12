@@ -8,7 +8,7 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 5 complete (next: 6, vLLM serving + benchmark).** See `docs/PLAN.md` for the full plan and
+**Current phase: 6 complete (next: 7, agent API + observability).** See `docs/PLAN.md` for the full plan and
 definition-of-done checklists. The TEST split has been used for the Phase 4.5 and Phase 5 comparisons: future
 prompt/tool iteration needs fresh held-out scenarios.
 
@@ -249,6 +249,26 @@ with guards on/off, over-eager flagging).
 summary.json; committed), `trials.jsonl` (one row per trial with trace and grading; git-ignored),
 `llm_requests.jsonl` (with `--record-llm`; git-ignored). `meta` records model, endpoint host, temperature, trials,
 split, guardrails, fault rate, HTTP retries, prompt/tools/scenarios hashes, git commit + dirty flag, package versions.
+
+#### Serving & benchmark (phase 6, `serving/`; GPU runs in phase 9)
+
+- `serve.sh <variant>` serves the LLM with vLLM (variants `fp16`, `awq`, `fp8`, `t4-fp16`, `t4-awq`), fixed flags
+  `--enable-auto-tool-choice --tool-call-parser hermes --max-model-len 8192 --gpu-memory-utilization 0.90`, prefix
+  caching on, `--served-model-name bank-agent-llm`. It prints the vLLM version, recorded in each benchmark meta.
+- `benchmark.py` replays a recorded `llm_requests.jsonl` workload, streaming, at concurrency 1/4/8/16. **Every
+  variant must see byte-identical requests in the same order:** the order is shuffled with a fixed seed and
+  fingerprinted as `workload_hash`; `compare.py` refuses to compare runs whose hashes differ.
+- **The workload is recorded once, from the FP16 TEST run with prompt v1′**, then replayed to every variant.
+- **Headline is pre-registered: concurrency 8** (throughput/cost) and concurrency 1 (single-user latency). The GPU
+  price is an argument with source+date in meta, never hard-coded; cost per 1K tasks uses calls-per-task from the
+  same variant's eval summary.
+- **No Mac/Ollama serving number is a reported result** — those are smoke tests, labelled as such in meta and the
+  report. Reported serving/quality numbers come only from the phase 9 GPU runs (`docs/GPU_RUNBOOK.md`).
+- FP16-vs-AWQ quality: **primary test is the paired scenario-level (cluster) bootstrap** of AWQ − FP16 task success
+  (`evals.metrics.paired_cluster_bootstrap`); "not significantly different" only if its 95% CI contains 0. The
+  two-proportion z-test is secondary.
+- **Known limitation:** the Wilson 95% CIs on task success treat a scenario's trials as independent, so they are
+  likely slightly too narrow; the cluster bootstrap is the more conservative measure.
 
 ### Code style
 - Type hints everywhere; small, single-purpose modules.

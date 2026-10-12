@@ -101,10 +101,15 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
 - [x] Mutation checks (L3, confirm node, careful customer); `docs/PHASE5_SUMMARY.md` with resume-ready facts
 
 ## Phase 6 — vLLM serving + benchmark
-- [ ] Serving scripts for FP16 and AWQ 4-bit (same base model) behind an OpenAI-compatible endpoint
-- [ ] Recorded agent workload (from eval LLM requests) replayed as the load benchmark
-- [ ] Metrics: throughput, TTFT, latency p50/p95/p99, GPU memory, cost per 1K tasks (cost inputs from config)
-- [ ] `make serve-fp16`, `make serve-awq`, `make bench` implemented; results under `results/`
+- [x] Pre-registered plan (`docs/SERVING_PLAN.md`) committed before any code; built + verified locally (no GPU here)
+- [x] Serving script for FP16, AWQ, FP8 and T4-fallback variants behind an OpenAI-compatible endpoint (`serving/serve.sh`)
+- [x] Recorded agent workload replayed byte-identically as the load benchmark (fixed-seed order + `workload_hash` guard)
+- [x] Metrics: TTFT/TPOT, latency p50/p95, throughput, mean output tokens, GPU memory, error rate, cost per 1K tasks
+      (price an argument with source+date; calls/task from the eval summary)
+- [x] `make serve-fp16`, `make serve-awq`, `make bench`, `make compare-serving`; smoke run under `results/`
+- [x] Quality statistics (paired cluster bootstrap primary, two-proportion z secondary) in `evals/metrics.py`, tested
+- [x] Verified: unit tests, mock-server plumbing, Ollama smoke benchmark (labelled not-a-result), workload-hash
+      mutation check; `docs/GPU_RUNBOOK.md` for the Phase 9 GPU run; `docs/PHASE6_SUMMARY.md`
 
 ## Phase 7 — Agent API + observability
 - [ ] Agent HTTP API (session auth → customer identity, confirmation endpoint for interrupts)
