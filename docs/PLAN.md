@@ -112,11 +112,13 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
       mutation check; `docs/GPU_RUNBOOK.md` for the Phase 9 GPU run; `docs/PHASE6_SUMMARY.md`
 
 ## Phase 7 — Agent API + observability
-- [ ] Agent HTTP API (session auth → customer identity, confirmation endpoint for interrupts)
-- [ ] Prometheus metrics (requests, tool calls, guardrail blocks by layer, latency, tokens)
-- [ ] Structured JSON audit log of every proposed/blocked/approved/executed action
-- [ ] Grafana dashboard JSON + alert rules committed under `monitoring/`
-- [ ] `make api` and `make monitoring-up` implemented
+- [x] Agent HTTP API: JWT (HS256) auth → user_id from token only; sessions, messages, confirm, get, healthz, readyz,
+      metrics; 401/404(same)/409/422/429/200-degraded; per-session lock; per-request retry accounting (contextvar)
+- [x] Prometheus metrics (17 families, bounded labels only) driven from the same trace events as the graph
+- [x] Structured JSON audit log (PAN-redacted; message length not text; one triple per confirmed write)
+- [x] Grafana dashboard JSON + 7 alert rules under `monitoring/`; PromQL validated against registered metrics;
+      promtool check passes; live dashboard verified with data (`docs/img/grafana.png`)
+- [x] `make api`, `make monitoring-up`, `make demo` implemented; mutation checks (ownership, label cardinality)
 
 ## Phase 8 — Docker + CI/CD
 - [ ] Dockerfiles for services and agent API; `docker-compose.yml` for the full stack (+ Prometheus/Grafana)

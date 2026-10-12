@@ -1,0 +1,94 @@
+{
+  "title": "Banking Support Agent",
+  "uid": "banking-agent",
+  "schemaVersion": 39,
+  "timezone": "",
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    { "type": "row", "title": "Agent", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "type": "timeseries", "title": "Turn latency p50 / p95 (s)", "gridPos": { "h": 7, "w": 12, "x": 0, "y": 1 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(agent_turn_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(agent_turn_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "LLM call latency p50 / p95 (s)", "gridPos": { "h": 7, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(agent_llm_call_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(agent_llm_call_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "Tool calls by decision (rate)", "gridPos": { "h": 7, "w": 12, "x": 0, "y": 8 },
+      "targets": [ { "expr": "sum(rate(agent_tool_calls_total[5m])) by (decision)", "legendFormat": "{{decision}}" } ]
+    },
+    {
+      "type": "timeseries", "title": "Guardrail blocks by layer / code (rate)", "gridPos": { "h": 7, "w": 12, "x": 12, "y": 8 },
+      "targets": [ { "expr": "sum(rate(agent_guardrail_blocks_total[5m])) by (layer, code)", "legendFormat": "{{layer}}/{{code}}" } ]
+    },
+    {
+      "type": "timeseries", "title": "Confirmations by outcome (rate)", "gridPos": { "h": 7, "w": 8, "x": 0, "y": 15 },
+      "targets": [ { "expr": "sum(rate(agent_confirmations_total[5m])) by (outcome)", "legendFormat": "{{outcome}}" } ]
+    },
+    {
+      "type": "timeseries", "title": "Errors: LLM & tool executions (rate)", "gridPos": { "h": 7, "w": 8, "x": 8, "y": 15 },
+      "targets": [
+        { "expr": "sum(rate(agent_llm_errors_total[5m]))", "legendFormat": "llm errors" },
+        { "expr": "sum(rate(agent_tool_executions_total{status=\"error\"}[5m]))", "legendFormat": "tool errors" },
+        { "expr": "sum(rate(agent_step_limit_hits_total[5m]))", "legendFormat": "step-limit hits" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "LLM tokens by direction (rate)", "gridPos": { "h": 7, "w": 8, "x": 16, "y": 15 },
+      "targets": [ { "expr": "sum(rate(agent_llm_tokens_total[5m])) by (direction)", "legendFormat": "{{direction}}" } ]
+    },
+    {
+      "type": "timeseries", "title": "Bank service calls & retries (rate)", "gridPos": { "h": 7, "w": 12, "x": 0, "y": 22 },
+      "targets": [
+        { "expr": "sum(rate(bank_service_calls_total[5m])) by (service, status)", "legendFormat": "{{service}} {{status}}" },
+        { "expr": "sum(rate(bank_service_retries_total[5m])) by (service)", "legendFormat": "retries {{service}}" }
+      ]
+    },
+    {
+      "type": "stat", "title": "Active sessions / expired / rate-limited", "gridPos": { "h": 7, "w": 12, "x": 12, "y": 22 },
+      "targets": [
+        { "expr": "agent_active_sessions", "legendFormat": "active" },
+        { "expr": "sum(increase(agent_sessions_expired_total[1h]))", "legendFormat": "expired 1h" },
+        { "expr": "sum(increase(api_rate_limited_total[1h]))", "legendFormat": "rate-limited 1h" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "API requests by route/status & latency p95", "gridPos": { "h": 7, "w": 24, "x": 0, "y": 29 },
+      "targets": [
+        { "expr": "sum(rate(api_http_requests_total[5m])) by (route, status)", "legendFormat": "{{route}} {{status}}" },
+        { "expr": "histogram_quantile(0.95, sum(rate(api_http_request_seconds_bucket[5m])) by (le))", "legendFormat": "p95 latency" }
+      ]
+    },
+    { "type": "row", "title": "vLLM (verify metric names against vLLM 0.31.0 /metrics in Phase 9)", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 } },
+    {
+      "type": "timeseries", "title": "vLLM TTFT & request latency (p95) [EXTERNAL]", "gridPos": { "h": 7, "w": 12, "x": 0, "y": 37 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(vllm:time_to_first_token_seconds_bucket[5m])) by (le))", "legendFormat": "TTFT p95" },
+        { "expr": "histogram_quantile(0.95, sum(rate(vllm:e2e_request_latency_seconds_bucket[5m])) by (le))", "legendFormat": "e2e p95" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "vLLM running / waiting requests [EXTERNAL]", "gridPos": { "h": 7, "w": 12, "x": 12, "y": 37 },
+      "targets": [
+        { "expr": "vllm:num_requests_running", "legendFormat": "running" },
+        { "expr": "vllm:num_requests_waiting", "legendFormat": "waiting" }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "vLLM generation throughput & KV-cache usage [EXTERNAL]", "gridPos": { "h": 7, "w": 24, "x": 0, "y": 44 },
+      "targets": [
+        { "expr": "rate(vllm:generation_tokens_total[5m])", "legendFormat": "gen tok/s" },
+        { "expr": "vllm:gpu_cache_usage_perc", "legendFormat": "KV-cache %" }
+      ]
+    }
+  ]
+}

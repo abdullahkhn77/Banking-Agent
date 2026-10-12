@@ -7,13 +7,19 @@ unauthorized tool calls. An evaluation suite grades the agent on backend end sta
 task-completion reliability. The LLM is served through vLLM (FP16 vs AWQ 4-bit) with CI/CD and Prometheus/Grafana
 monitoring. Every reported metric is produced by a script and saved under `results/`.
 
-> **Status: phase 6 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
+> **Status: phase 7 complete.** Simulated bank (5 FastAPI microservices) with deterministic seed data and a rule-based
 > anomaly detector; a retrying, idempotent bank client; the tool registry and layered guardrails (L1–L5); a
 > LangGraph agent that pauses every state-changing action for human confirmation (L6); an end-state evaluation suite
 > (69 scenarios, oracle + negative controls); a pre-registered guardrail red team; and vLLM serving scripts + a
 > streaming inference benchmark + FP16-vs-AWQ comparison, built and verified locally. The reported serving and
 > quality numbers come from the Phase 9 GPU run (see [docs/GPU_RUNBOOK.md](docs/GPU_RUNBOOK.md)); production stays on
-> prompt v1′. See [docs/PLAN.md](docs/PLAN.md) and `results/`.
+> prompt v1′; an authenticated HTTP API with Prometheus metrics, a JSON audit log, and a Grafana dashboard. See
+> [docs/PLAN.md](docs/PLAN.md) and `results/`.
+
+![Grafana dashboard for the banking agent](docs/img/grafana.png)
+
+*Live Grafana dashboard (Phase 7): turn/LLM latency, tool calls by decision, guardrail blocks by layer/code,
+confirmations, errors, tokens, bank-service calls/retries, sessions, and API request rates.*
 
 ## Setup
 

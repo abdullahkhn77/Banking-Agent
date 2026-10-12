@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: banking-agent-api
+    metrics_path: /metrics
+    static_configs:
+      # host.docker.internal: the API runs on the host; Prometheus runs in the compose network.
+      - targets: ["host.docker.internal:8080"]
+        labels: { service: api }
+
+  - job_name: vllm
+    metrics_path: /metrics
+    static_configs:
+      # Phase 9: the vLLM server. Metric names must be verified against vLLM 0.31.0 /metrics (see GPU_RUNBOOK).
+      - targets: ["host.docker.internal:8000"]
+        labels: { service: vllm }

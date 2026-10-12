@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import time
 import uuid
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import httpx
 
 SERVICES: tuple[str, ...] = ("accounts", "cards", "disputes", "risk", "payments")
+
+# Per-request retry tally. ``retry_count`` on the client is a lifetime total (shared, used by tests); this
+# contextvar isolates the retries made while handling one request even when several requests share one client
+# (Phase 7 fix of the Phase 3 cross-session accounting limitation). It is None unless a retry_scope is active.
+_request_retries: contextvars.ContextVar[list[int] | None] = contextvars.ContextVar(
+    "bank_request_retries", default=None
+)
+
+
+@contextlib.contextmanager
+def retry_scope() -> Iterator[Callable[[], int]]:
+    """Count retries made inside this scope only (contextvar-isolated across threads/async tasks)."""
+    box = [0]
+    token = _request_retries.set(box)
+    try:
+        yield lambda: box[0]
+    finally:
+        _request_retries.reset(token)
 
 
 class ServiceError(Exception):
@@ -78,6 +99,9 @@ class BankClient:
         for attempt in range(self.retries + 1):
             if attempt:
                 self.retry_count += 1
+                box = _request_retries.get()
+                if box is not None:
+                    box[0] += 1
                 if self.backoff_s:
                     time.sleep(self.backoff_s * 2 ** (attempt - 1))
             try:

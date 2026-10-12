@@ -32,7 +32,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, interrupt
 from pydantic import ValidationError
 
-from agent.client import BankClient, ServiceError
+from agent.client import BankClient, ServiceError, retry_scope
 from agent.guardrails import Decision, GuardConfig, GuardrailEngine
 from agent.llm import LLMBackend, message_text
 from agent.prompts import SIMULATED_TODAY, system_prompt
@@ -291,32 +291,35 @@ def _run(entry: dict[str, Any], ctx: Ctx, client: BankClient) -> tuple[str, bool
     """Execute one approved call with its stored args. Returns (ToolMessage content, ok, trace event)."""
     name = entry["name"]
     spec = REGISTRY[name]
-    retries_before = client.retry_count
     started = time.perf_counter()
     error: str | None = None
     detail: str | None = None
-    # A non-dict or schema-invalid args can only reach here with guardrails disabled; the tool's own model still
-    # rejects them (guardrails off = no L1-L6, tool schemas still enforced).
-    if not isinstance(entry["args"], Mapping):
-        error = "INVALID_ARGS"
-        content = _error_content(error, f"Invalid arguments for {name}: arguments must be a JSON object")
-    else:
-        try:
-            result = spec.invoke(ctx, entry["args"])
-            content = json.dumps(result, ensure_ascii=False, default=str)[:MAX_TOOL_RESULT_CHARS]
-        except ServiceError as exc:
-            error = exc.code
-            content = _error_content(exc.code, exc.message)
-        except ValidationError as exc:
+    # Count retries for THIS execution only (contextvar-isolated), so concurrent sessions sharing a client cannot
+    # corrupt each other's retry accounting (Phase 7 fix of the Phase 3 limitation).
+    with retry_scope() as request_retries:
+        # A non-dict or schema-invalid args can only reach here with guardrails disabled; the tool's own model still
+        # rejects them (guardrails off = no L1-L6, tool schemas still enforced).
+        if not isinstance(entry["args"], Mapping):
             error = "INVALID_ARGS"
-            problems = "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()[:4])
-            content = _error_content(error, f"Invalid arguments for {name}: {problems}")
-        except Exception as exc:
-            error = "TOOL_ERROR"
-            detail = type(exc).__name__
-            content = _error_content(
-                error, "The tool failed unexpectedly. Check the current state with a read tool before replying."
-            )
+            content = _error_content(error, f"Invalid arguments for {name}: arguments must be a JSON object")
+        else:
+            try:
+                result = spec.invoke(ctx, entry["args"])
+                content = json.dumps(result, ensure_ascii=False, default=str)[:MAX_TOOL_RESULT_CHARS]
+            except ServiceError as exc:
+                error = exc.code
+                content = _error_content(exc.code, exc.message)
+            except ValidationError as exc:
+                error = "INVALID_ARGS"
+                problems = "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()[:4])
+                content = _error_content(error, f"Invalid arguments for {name}: {problems}")
+            except Exception as exc:
+                error = "TOOL_ERROR"
+                detail = type(exc).__name__
+                content = _error_content(
+                    error, "The tool failed unexpectedly. Check the current state with a read tool before replying."
+                )
+        retries = request_retries()
     event: dict[str, Any] = {
         "type": "execution",
         "id": entry["id"],
@@ -324,7 +327,7 @@ def _run(entry: dict[str, Any], ctx: Ctx, client: BankClient) -> tuple[str, bool
         "kind": spec.kind,
         "ok": error is None,
         "latency_s": time.perf_counter() - started,
-        "retries": client.retry_count - retries_before,
+        "retries": retries,
     }
     if error is not None:
         event["error"] = error
@@ -403,6 +406,10 @@ class BankingAgent:
     def state(self, thread_id: str, user_id: str) -> dict[str, Any]:
         config = self._config(thread_id, user_id)
         return dict(self.graph.get_state(config).values)
+
+    def pending(self, thread_id: str, user_id: str) -> dict[str, Any] | None:
+        """The pending confirmation payload for this thread, or None (enforces thread ownership)."""
+        return self._pending(self._config(thread_id, user_id))
 
     def _config(self, thread_id: str, user_id: str) -> RunnableConfig:
         with self._lock:

@@ -1,0 +1,58 @@
+groups:
+  - name: banking-agent
+    rules:
+      - alert: AgentTurnLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(agent_turn_latency_seconds_bucket[5m])) by (le)) > 15
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Agent turn p95 latency above 15s for 10m"
+
+      - alert: GuardrailBlockRateSpike
+        expr: >
+          sum(rate(agent_guardrail_blocks_total[15m]))
+          > 3 * sum(rate(agent_guardrail_blocks_total[6h] offset 15m))
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Guardrail block rate > 3x its 6h baseline (possible injection or regression)"
+
+      - alert: CrossAccountProbing
+        expr: sum(increase(agent_guardrail_blocks_total{code="NOT_OWNER"}[15m])) > 10
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Repeated NOT_OWNER blocks in 15m (cross-account probing)"
+
+      - alert: ToolErrorRatioHigh
+        expr: >
+          sum(rate(agent_tool_executions_total{status="error"}[10m]))
+          / clamp_min(sum(rate(agent_tool_executions_total[10m])), 0.001) > 0.05
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Tool execution error ratio above 5%"
+
+      - alert: LLMErrorRateHigh
+        expr: >
+          sum(rate(agent_llm_errors_total[10m]))
+          / clamp_min(sum(rate(agent_llm_call_latency_seconds_count[10m])), 0.001) > 0.02
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "LLM error rate above 2%"
+
+      - alert: DownstreamRetryRateHigh
+        expr: sum(rate(bank_service_retries_total[10m])) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High bank-service retry rate (downstream instability)"
+
+      - alert: VLLMQueueBacklog
+        # vLLM 0.31.0 exposes vllm:num_requests_waiting; verify the exact name in Phase 9 (GPU_RUNBOOK checklist).
+        expr: vllm:num_requests_waiting > 50
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "vLLM request queue backlog (waiting requests > 50)"

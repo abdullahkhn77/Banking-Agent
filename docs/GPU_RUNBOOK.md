@@ -35,6 +35,20 @@ log.
 - 16 GB (T4): the 7B FP16 weights (~15 GB) do not fit with an 8192 context → use the T4 fallback pair
   `t4-fp16` + `t4-awq` (3B). Every comparison stays same-size; `summary.json` records which pair ran.
 
+## 0a. Verify vLLM metric names for the Grafana dashboard (Phase 7 panels)
+
+The Grafana dashboard's vLLM row uses metric names that change between vLLM versions. Once the server is up, check
+them against the real endpoint and fix `monitoring/dashboards/banking-agent.json` if they differ:
+
+```bash
+curl -s localhost:8000/metrics | grep -E "vllm:(num_requests_(running|waiting)|time_to_first_token_seconds|e2e_request_latency_seconds|generation_tokens_total|gpu_cache_usage_perc)" | head
+```
+
+Expected in vLLM 0.31.0 (verify, do not assume): `vllm:num_requests_running`, `vllm:num_requests_waiting`,
+`vllm:time_to_first_token_seconds_bucket`, `vllm:e2e_request_latency_seconds_bucket`,
+`vllm:generation_tokens_total`, `vllm:gpu_cache_usage_perc`. The agent-side panels are already validated by
+`tests/test_monitoring.py`; only the vLLM names need this manual check.
+
 ## 1. Pilot: 10 requests, verify streamed tool-call parsing (both variants)
 
 Before any full benchmark, prove the server streams tool calls and the benchmark measures TTFT on a tool-call delta,

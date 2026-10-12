@@ -9,7 +9,7 @@ PYTHON := $(BIN)/python
 # Placeholder for targets owned by a later phase: $(call todo,<phase>)
 todo = @echo "$@: not implemented yet (phase $(1))"
 
-.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test redteam redteam-llm \
+.PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test redteam redteam-llm api monitoring-up monitoring-down demo \
 	 serve-fp16 serve-awq bench compare-serving api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
@@ -109,13 +109,23 @@ bench: ## Load-benchmark a running vLLM endpoint (BENCH_NAME, WORKLOAD, GPU_PRIC
 compare-serving: ## Build results/SERVING_COMPARISON.md from the bench + eval summaries
 	$(PYTHON) -m serving.compare $(COMPARE_ARGS)
 
+# ---- Phase 7: API + observability --------------------------------------------
+
+API_PORT ?= 8080
+
+api: ## Run the agent HTTP API (AUTH_SECRET required; LLM_BASE_URL/LLM_MODEL pick the model)
+	$(BIN)/uvicorn api.app:app --host 0.0.0.0 --port $(API_PORT)
+
+monitoring-up: ## Start Prometheus + Grafana (scrape the host API on :8080); Grafana at :3000 (admin/admin)
+	docker compose -f monitoring/compose.yml up -d
+
+monitoring-down: ## Stop the monitoring stack
+	docker compose -f monitoring/compose.yml down
+
+demo: ## Scripted live demo against the API (LLM_BASE_URL/LLM_MODEL pick the model)
+	$(PYTHON) -m scripts.demo
+
 # ---- Later phases: placeholders ----------------------------------------------
-
-api: ## Run the agent HTTP API (phase 7)
-	$(call todo,7)
-
-monitoring-up: ## Start Prometheus + Grafana (phase 7)
-	$(call todo,7)
 
 docker-build: ## Build container images (phase 8)
 	$(call todo,8)

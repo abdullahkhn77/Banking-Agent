@@ -8,7 +8,7 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 6 complete (next: 7, agent API + observability).** See `docs/PLAN.md` for the full plan and
+**Current phase: 7 complete (next: 8, Docker + CI/CD).** See `docs/PLAN.md` for the full plan and
 definition-of-done checklists. The TEST split has been used for the Phase 4.5 and Phase 5 comparisons: future
 prompt/tool iteration needs fresh held-out scenarios.
 
@@ -269,6 +269,43 @@ split, guardrails, fault rate, HTTP retries, prompt/tools/scenarios hashes, git 
   two-proportion z-test is secondary.
 - **Known limitation:** the Wilson 95% CIs on task success treat a scenario's trials as independent, so they are
   likely slightly too narrow; the cluster bootstrap is the more conservative measure.
+
+#### API & observability (phase 7, `api/`, `agent/telemetry.py`, `monitoring/`)
+
+- **Identity comes ONLY from a verified HS256 JWT** (`sub` = user_id), decoded with `algorithms=["HS256"]` and
+  `options={"require": ["exp", "sub"]}`. Never from the body or the model. `ApiConfig.from_env` refuses to start
+  without `AUTH_SECRET` unless `DEV_MODE=1`. `scripts/mint_token.py` mints dev tokens.
+- **Endpoints:** `POST /v1/sessions` → `{session_id}`; `POST /v1/sessions/{id}/messages` `{text ≤ 2000}` →
+  `{status: complete|awaiting_confirmation, reply|confirmation, latency_s, degraded}`;
+  `POST /v1/sessions/{id}/confirm` `{approved_ids}` or `{approve}`; `GET /v1/sessions/{id}` → `{turns, confirmation}`
+  (no history); `GET /healthz`, `GET /readyz` (bank + LLM reachability), `GET /metrics`.
+- **Errors:** 401 (missing/bad/expired token); **404 identical** for a missing session and one owned by another user
+  (no probing); 409 (message while a confirmation is pending, confirm with nothing pending, or a concurrent request
+  on the same session — per-session lock); 422 (validation); 429 (per-user in-memory rate limit).
+- **LLM outage during a turn → HTTP 200 with `degraded: true` and the fallback reply** (the turn completed; a client
+  retry could resend). `/readyz` returns **503** while the LLM is unreachable. The message endpoint is never 503.
+- Sessions are in-memory with an idle TTL (default 30 min) and a max count; expiry increments
+  `agent_sessions_expired_total`. **Persistence is phase 10.**
+- **Retry accounting is per request**, isolated by a contextvar (`agent.client.retry_scope`), so concurrent sessions
+  sharing a client cannot corrupt each other's counts (fixes the phase 3 limitation).
+- **Metrics** (`agent/telemetry.py`) are driven by `record_trace_event` at the **same points the graph emits trace
+  events**, so trace and metrics never disagree. Families: `agent_turn_latency_seconds`,
+  `agent_llm_call_latency_seconds`, `agent_llm_tokens_total{direction}`, `agent_llm_errors_total`,
+  `agent_tool_calls_total{tool,decision}`, `agent_guardrail_blocks_total{layer,code}`,
+  `agent_guardrail_check_seconds`, `agent_confirmations_total{outcome}`, `agent_tool_executions_total{tool,status}`,
+  `bank_service_calls_total{service,status}`, `bank_service_retries_total{service}`, `agent_step_limit_hits_total`,
+  `agent_active_sessions`, `agent_sessions_expired_total`, `api_http_requests_total{route,method,status}`,
+  `api_http_request_seconds`, `api_rate_limited_total`.
+- **Label rule:** bounded labels only — tool names, guardrail layers/codes, decisions, service names, HTTP **route
+  templates** (never the concrete path), fixed enums. **Never user_id, session_id or free text.** A cardinality test
+  checks declared label names.
+- **Audit log** (`api/audit.py`): one JSON line per event (session_start, user_message [length only, never text],
+  tool_call [tool, decision, layer, code, validated args], confirmation [requested/approved ids], execution [tool,
+  ok, latency, retries], reply [length only], session_end), each with `ts, request_id, session_id, user_id`.
+  PAN-redacted; never logs full tool results or other customers' data. Sink is stdout or a file.
+- **Monitoring** (`monitoring/`): `prometheus.yml`, `alerts.yml` (7 rules), Grafana provisioning + dashboard,
+  `compose.yml` (Prometheus + Grafana only — the app and vLLM run on the host; containerising the app is phase 8).
+  vLLM panel metric names must be verified against vLLM 0.31.0 in phase 9 (GPU_RUNBOOK §0a).
 
 ### Code style
 - Type hints everywhere; small, single-purpose modules.
