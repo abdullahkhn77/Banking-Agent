@@ -1,0 +1,5 @@
+# GPU serving dependencies (Phase 9, installed on the GPU host only; NOT in requirements.txt).
+# vLLM pinned to the current stable release on PyPI, checked 2026-10-12.
+# If the host's CUDA/driver is incompatible with this wheel, the GPU_RUNBOOK documents installing an older pin
+# that matches the host; the serve script prints the actually-installed version, which the benchmark records.
+vllm==0.31.0

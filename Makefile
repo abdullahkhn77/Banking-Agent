@@ -10,7 +10,7 @@ PYTHON := $(BIN)/python
 todo = @echo "$@: not implemented yet (phase $(1))"
 
 .PHONY: help install lint format test test-live serve-bank chat scenarios oracle eval-dev eval-test redteam redteam-llm \
-	 serve-fp16 serve-awq bench api monitoring-up docker-build compose-up report
+	 serve-fp16 serve-awq bench compare-serving api monitoring-up docker-build compose-up report
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-15s %s\n", $$1, $$2}'
@@ -58,6 +58,8 @@ chat: ## Chat with the agent (USER=u_1001; LLM_BASE_URL / LLM_MODEL pick the mod
 
 # Model under test for eval-dev / eval-test (override on the command line).
 BASE_URL ?= http://localhost:8000/v1
+PORT ?= 8000
+COMPARE_ARGS ?=
 MODEL ?= bank-agent-llm
 TRIALS ?= 3
 TEMP ?= 0
@@ -86,17 +88,28 @@ redteam: ## Red team A+B: guardrail corpus + hijacked-model grid (deterministic,
 redteam-llm: ## Red team C+D+E (model in the loop); set BASE_URL / MODEL; never run in CI
 	@echo "C/D/E are launched by scripts/run_redteam_llm.sh (long-running, resumable). See docs/REDTEAM_PLAN.md."
 
+# ---- Phase 6: vLLM serving + benchmark (GPU host; see docs/GPU_RUNBOOK.md) ----
+
+# BENCH_* configure the benchmark; GPU_PRICE/SOURCE/DATE and WORKLOAD are set per run on the GPU host.
+BENCH_NAME ?= bench
+WORKLOAD ?=
+GPU_PRICE ?=
+BENCH_ARGS = --name $(BENCH_NAME) --base-url $(BASE_URL) $(if $(WORKLOAD),--workload $(WORKLOAD),) \
+	$(if $(GPU_PRICE),--gpu-price $(GPU_PRICE),)
+
+serve-fp16: ## Serve Qwen2.5-7B-Instruct (FP16) with vLLM (GPU host)
+	serving/serve.sh fp16 $(PORT)
+
+serve-awq: ## Serve Qwen2.5-7B-Instruct-AWQ (4-bit) with vLLM (GPU host)
+	serving/serve.sh awq $(PORT)
+
+bench: ## Load-benchmark a running vLLM endpoint (BENCH_NAME, WORKLOAD, GPU_PRICE, BASE_URL)
+	$(PYTHON) -m serving.benchmark $(BENCH_ARGS)
+
+compare-serving: ## Build results/SERVING_COMPARISON.md from the bench + eval summaries
+	$(PYTHON) -m serving.compare $(COMPARE_ARGS)
+
 # ---- Later phases: placeholders ----------------------------------------------
-
-
-serve-fp16: ## Serve the LLM with vLLM, FP16 (phase 6)
-	$(call todo,6)
-
-serve-awq: ## Serve the LLM with vLLM, AWQ 4-bit (phase 6)
-	$(call todo,6)
-
-bench: ## Load-benchmark vLLM on the recorded agent workload (phase 6)
-	$(call todo,6)
 
 api: ## Run the agent HTTP API (phase 7)
 	$(call todo,7)

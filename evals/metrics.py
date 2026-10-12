@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 Z_95 = 1.959963984540054
@@ -25,6 +26,74 @@ def pass_hat_k(per_scenario: Iterable[tuple[int, int]], k: int) -> float:
     """tau-bench pass^k: mean over scenarios of C(c, k) / C(n, k), with c successes out of n trials."""
     values = [math.comb(c, k) / math.comb(n, k) for n, c in per_scenario if n >= k]
     return sum(values) / len(values) if values else 0.0
+
+
+def two_proportion_z(s1: int, n1: int, s2: int, n2: int) -> tuple[float, float]:
+    """Two-proportion z-test (pooled). Returns (z, two-sided p). Treats all trials as independent (secondary test)."""
+    if n1 == 0 or n2 == 0:
+        return (0.0, 1.0)
+    p1, p2 = s1 / n1, s2 / n2
+    pool = (s1 + s2) / (n1 + n2)
+    se = math.sqrt(pool * (1 - pool) * (1 / n1 + 1 / n2))
+    if se == 0:
+        return (0.0, 1.0)
+    z = (p1 - p2) / se
+    p = math.erfc(abs(z) / math.sqrt(2))  # two-sided
+    return (z, p)
+
+
+def paired_cluster_bootstrap(
+    clusters: Mapping[str, tuple[Sequence[bool], Sequence[bool]]],
+    resamples: int = 10_000,
+    seed: int = 20261012,
+    ci: float = 0.95,
+) -> dict[str, Any]:
+    """Paired scenario-level (cluster) bootstrap of a success-rate difference, variant A minus variant B.
+
+    ``clusters`` maps a scenario id to (A_trials, B_trials), each a sequence of per-trial booleans for that scenario
+    under each variant. Scenarios are the resampling unit (their trials are correlated). Returns the observed
+    difference in overall success rate (pooled over trials) and the bootstrap CI of that difference; the variants are
+    "not significantly different" iff the CI contains 0.
+    """
+    keys = [k for k, (a, b) in clusters.items() if a and b]
+    if not keys:
+        return {
+            "difference": None,
+            "ci_low": None,
+            "ci_high": None,
+            "contains_zero": True,
+            "resamples": 0,
+            "n_scenarios": 0,
+        }
+
+    def rate_diff(selected: Sequence[str]) -> float:
+        a_succ = a_tot = b_succ = b_tot = 0
+        for key in selected:
+            a, b = clusters[key]
+            a_succ += sum(a)
+            a_tot += len(a)
+            b_succ += sum(b)
+            b_tot += len(b)
+        return (a_succ / a_tot) - (b_succ / b_tot)
+
+    observed = rate_diff(keys)
+    rng = random.Random(seed)
+    diffs = []
+    n = len(keys)
+    for _ in range(resamples):
+        sample = [keys[rng.randrange(n)] for _ in range(n)]
+        diffs.append(rate_diff(sample))
+    diffs.sort()
+    lo = diffs[math.floor((1 - ci) / 2 * resamples)]
+    hi = diffs[min(resamples - 1, math.ceil((1 + ci) / 2 * resamples) - 1)]
+    return {
+        "difference": round(observed, 4),
+        "ci_low": round(lo, 4),
+        "ci_high": round(hi, 4),
+        "contains_zero": lo <= 0.0 <= hi,
+        "resamples": resamples,
+        "n_scenarios": n,
+    }
 
 
 def percentile(values: Sequence[float], q: float) -> float | None:
