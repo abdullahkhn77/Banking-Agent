@@ -89,11 +89,16 @@ Guardrailed Multi-Step Banking Support Agent. Architecture rules live in `CLAUDE
 - [x] `make lint`, `make test`, `make oracle` (still 100%) pass at the end
 
 ## Phase 5 — Guardrail red team
-- [ ] Generated attack corpus (unauthorized ownership, disallowed tools, schema smuggling, policy evasion,
-      budget exhaustion, prompt injection via tool output)
-- [ ] Hijacked-model end-to-end test: a model that always proposes attacks causes zero unauthorized state changes
-- [ ] Guardrails on vs off comparison, results per layer
-- [ ] `make redteam` writes results under `results/`
+- [x] Pre-registered plan (`docs/REDTEAM_PLAN.md`) committed before any code or result
+- [x] Generated guardrail decision corpus (944 calls, 7 attack classes): 766/766 malicious blocked, 0 legitimate
+      wrongly blocked (Gate A)
+- [x] Hijacked-model end-to-end grid (776 attacks × guards on/off × rubber-stamp/careful): guards on + careful = 0
+      state changes (Gate B); guards off = 192 changes + 35 exposures
+- [x] Careful-customer metric quantifies what L6 adds (unintended-change rate 0.76% → 0% for v5 on TEST)
+- [x] Indirect prompt-injection suite (8 families) and direct jailbreak suite (26 attacks), model in the loop,
+      guards on vs off; honest negative recorded (system prompt is extractable)
+- [x] `make redteam` writes `results/redteam/`, gated, in CI; `make redteam-llm` (C/D/E) never in CI
+- [x] Mutation checks (L3, confirm node, careful customer); `docs/PHASE5_SUMMARY.md` with resume-ready facts
 
 ## Phase 6 — vLLM serving + benchmark
 - [ ] Serving scripts for FP16 and AWQ 4-bit (same base model) behind an OpenAI-compatible endpoint

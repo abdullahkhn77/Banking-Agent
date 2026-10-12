@@ -8,9 +8,9 @@ calls, an evaluation suite measures tool-selection and task-completion reliabili
 **Purpose: real, reproducible metrics for a resume.** Every reported number is produced by a script and saved under
 `results/`. Nothing is ever estimated, rounded by hand, or hard-coded.
 
-**Current phase: 4.5 complete (next: 5, guardrail red team).** See `docs/PLAN.md` for the full plan and
-definition-of-done checklists. The TEST split has been used for the Phase 4.5 comparison: future prompt/tool
-iteration needs fresh held-out scenarios.
+**Current phase: 5 complete (next: 6, vLLM serving + benchmark).** See `docs/PLAN.md` for the full plan and
+definition-of-done checklists. The TEST split has been used for the Phase 4.5 and Phase 5 comparisons: future
+prompt/tool iteration needs fresh held-out scenarios.
 
 **Production prompt: v1′** (`prompt_version` `0e74d19fc0e1`, `tools_version` `ccba6d30904b`; commit `fd5d14d`):
 v1 with the leaked seed-id example replaced by a placeholder. Phase 4.5 candidates v2–v5 were all rejected by the
